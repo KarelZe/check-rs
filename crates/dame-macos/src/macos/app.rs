@@ -11,7 +11,7 @@ use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::NSString;
 
 use super::board_view::{BoardView, Scene};
-use super::status_bar::{DEPTH_SYMBOL, Item, Status, StatusBar, TIME_SYMBOL, Tone};
+use super::status_bar::{DEPTH_SYMBOL, Item, SCORE_SYMBOL, Status, StatusBar, TIME_SYMBOL, Tone};
 use super::wake_app;
 use crate::engine::{Engine, Event, Info, engine_command};
 use crate::input::MoveInput;
@@ -51,6 +51,9 @@ impl Players {
 
 /// Engine thinking times offered in the menu, in seconds.
 pub(crate) const MOVE_TIMES: [u32; 4] = [1, 3, 10, 30];
+
+/// Moves of the expected line shown in the status bar; the tooltip has all.
+const SHOWN_PLIES: usize = 6;
 
 /// The engine process and what it is doing.
 #[derive(Debug)]
@@ -479,7 +482,7 @@ impl App {
         if let Some(info) = &session.info {
             if !info.pv.is_empty() {
                 status.left.push(
-                    Item::new(info.pv.clone(), Tone::Muted)
+                    Item::new(shorten(&info.pv, SHOWN_PLIES), Tone::Muted)
                         .with_tooltip(format!("Expected line: {}", info.pv)),
                 );
             }
@@ -500,6 +503,7 @@ impl App {
                 };
                 status.right.push(
                     Item::new(format!("{score:+.2}"), Tone::Muted)
+                        .with_symbol(SCORE_SYMBOL)
                         .with_tooltip("Evaluation in men, from White's point of view"),
                 );
             }
@@ -548,6 +552,16 @@ fn pdn_line(mut position: Position, hub: &str) -> String {
     line.join(" ")
 }
 
+/// The first `plies` moves of `line`, with an ellipsis if there are more.
+fn shorten(line: &str, plies: usize) -> String {
+    let mut moves = line.split_whitespace();
+    let mut shown = moves.by_ref().take(plies).collect::<Vec<_>>().join(" ");
+    if moves.next().is_some() {
+        shown.push_str(" …");
+    }
+    shown
+}
+
 fn copy(text: &str) {
     let pasteboard = NSPasteboard::generalPasteboard();
     pasteboard.clearContents();
@@ -567,5 +581,12 @@ mod tests {
             "32-28 19-23 28x19 14x23"
         );
         assert_eq!(pdn_line(position, "32-28 99-98 19-23"), "32-28");
+    }
+
+    #[test]
+    fn long_lines_are_shortened() {
+        assert_eq!(shorten("32-28 19-23 28x19", 3), "32-28 19-23 28x19");
+        assert_eq!(shorten("32-28 19-23 28x19 14x23", 3), "32-28 19-23 28x19 …");
+        assert_eq!(shorten("", 3), "");
     }
 }

@@ -26,6 +26,8 @@ const SYMBOL_SIZE: f64 = 12.0;
 
 /// Search depth: stacked layers, one per ply.
 pub(crate) const DEPTH_SYMBOL: &str = "square.stack.3d.down.right";
+/// The evaluation: a gauge of how strong the position is.
+pub(crate) const SCORE_SYMBOL: &str = "speedometer";
 /// Time per move: how fast the engine plays.
 pub(crate) const TIME_SYMBOL: &str = "bolt";
 
@@ -351,7 +353,7 @@ mod tests {
 
     #[test]
     fn symbols_exist() {
-        for name in [DEPTH_SYMBOL, TIME_SYMBOL] {
+        for name in [DEPTH_SYMBOL, SCORE_SYMBOL, TIME_SYMBOL] {
             assert!(symbol(name, Tone::Muted).is_some(), "{name}");
         }
     }

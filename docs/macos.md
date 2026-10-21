@@ -60,9 +60,10 @@ to click one of the pieces to take, which picks the route. You can also click
 that piece before the destination.
 
 The status bar at the bottom, styled after the VS Code footer, shows whose
-turn it is and the engine's expected line on the left. On the right are the
-search depth (layers icon), the score in men from White's point of view, the
-time per move (lightning icon) and the engine's state (green: ready, yellow:
+turn it is and the first six moves of the engine's expected line on the left
+(the tooltip shows all of it). On the right are the search depth (layers
+icon), the score in men from White's point of view (gauge icon), the time per
+move (lightning icon) and the engine's state (green: ready, yellow:
 thinking). Rest the pointer on an item for an explanation; the engine's name
 and version are in the tooltip of its state. The window title shows the app
 version, and the window uses GitHub's dark theme colors.
