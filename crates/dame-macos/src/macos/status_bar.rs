@@ -2,6 +2,7 @@
 //! the left and right edges and evenly padded.
 
 use std::cell::RefCell;
+use std::ffi::c_void;
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -10,7 +11,7 @@ use objc2_app_kit::{
     NSBezierPath, NSColor, NSFont, NSFontAttributeName, NSFontWeightMedium, NSFontWeightRegular,
     NSForegroundColorAttributeName, NSImage, NSImageSymbolConfiguration, NSStringDrawing, NSView,
 };
-use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString};
+use objc2_foundation::{NSArray, NSDictionary, NSInteger, NSPoint, NSRect, NSSize, NSString};
 
 use super::palette;
 
@@ -25,8 +26,8 @@ const SYMBOL_SIZE: f64 = 12.0;
 
 /// Search depth: stacked layers, one per ply.
 pub(crate) const DEPTH_SYMBOL: &str = "square.stack.3d.down.right";
-/// Time per move.
-pub(crate) const TIME_SYMBOL: &str = "timer";
+/// Time per move: how fast the engine plays.
+pub(crate) const TIME_SYMBOL: &str = "bolt";
 
 /// What an item's text or dot means, and so its color.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -63,6 +64,8 @@ pub(crate) struct Item {
     pub(crate) text: String,
     pub(crate) tone: Tone,
     pub(crate) lead: Option<Lead>,
+    /// Shown when the pointer rests on the item.
+    pub(crate) tooltip: Option<String>,
 }
 
 impl Item {
@@ -71,7 +74,13 @@ impl Item {
             text: text.into(),
             tone,
             lead: None,
+            tooltip: None,
         }
+    }
+
+    pub(crate) fn with_tooltip(mut self, tooltip: impl Into<String>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
     }
 
     pub(crate) fn with_dot(mut self, dot: Tone) -> Self {
@@ -85,14 +94,17 @@ impl Item {
     }
 }
 
-/// The SF Symbol `name`, sized for the bar and tinted with `tone`.
+/// The SF Symbol `name`, sized for the bar and drawn in the single color of
+/// `tone`, like the text next to it.
 fn symbol(name: &str, tone: Tone) -> Option<Retained<NSImage>> {
     // Medium matches the visual weight of the regular text.
     // SAFETY: an immutable framework constant.
     let weight = unsafe { NSFontWeightMedium };
     let config = NSImageSymbolConfiguration::configurationWithPointSize_weight(SYMBOL_SIZE, weight)
         .configurationByApplyingConfiguration(
-            &NSImageSymbolConfiguration::configurationWithHierarchicalColor(&tone.color()),
+            &NSImageSymbolConfiguration::configurationWithPaletteColors(
+                &NSArray::from_retained_slice(&[tone.color()]),
+            ),
         );
     NSImage::imageWithSystemSymbolName_accessibilityDescription(&NSString::from_str(name), None)?
         .imageWithSymbolConfiguration(&config)
@@ -108,6 +120,8 @@ pub(crate) struct Status {
 #[derive(Debug, Default)]
 pub(crate) struct Ivars {
     status: RefCell<Status>,
+    /// Where the items with tooltips were last drawn.
+    tooltips: RefCell<Vec<(NSRect, String)>>,
 }
 
 define_class!(
@@ -130,6 +144,23 @@ define_class!(
         fn draw_rect(&self, _dirty: NSRect) {
             self.draw();
         }
+
+        /// The tooltip owner callback; the bar owns all its tooltip rects.
+        #[unsafe(method_id(view:stringForToolTip:point:userData:))]
+        fn tooltip(
+            &self,
+            _view: &NSView,
+            _tag: NSInteger,
+            point: NSPoint,
+            _data: *mut c_void,
+        ) -> Retained<NSString> {
+            let tooltips = self.ivars().tooltips.borrow();
+            let text = tooltips
+                .iter()
+                .find(|(rect, _)| contains(*rect, point))
+                .map_or("", |(_, text)| text.as_str());
+            NSString::from_str(text)
+        }
     }
 );
 
@@ -142,6 +173,11 @@ fn attributes(font: &NSFont, tone: Tone) -> Attributes {
     let keys = unsafe { [NSFontAttributeName, NSForegroundColorAttributeName] };
     let values: [&AnyObject; 2] = [font, &color];
     NSDictionary::from_slices(&keys, &values)
+}
+
+fn contains(rect: NSRect, point: NSPoint) -> bool {
+    (rect.origin.x..rect.origin.x + rect.size.width).contains(&point.x)
+        && (rect.origin.y..rect.origin.y + rect.size.height).contains(&point.y)
 }
 
 fn text_width(text: &str, attributes: &Attributes) -> f64 {
@@ -248,11 +284,21 @@ impl StatusBar {
             }
         };
 
+        let mut tooltips = Vec::new();
+        let mut add_tooltip = |item: &Item, x: f64, width: f64| {
+            if let Some(tooltip) = &item.tooltip {
+                let rect = NSRect::new(NSPoint::new(x, 0.0), NSSize::new(width, height));
+                tooltips.push((rect, tooltip.clone()));
+            }
+        };
+
         let mut right = bounds.size.width - PAD;
         for item in status.right.iter().rev() {
             let attributes = attributes(&font, item.tone);
-            right -= item_width(item, &attributes);
+            let width = item_width(item, &attributes);
+            right -= width;
             draw_item(item, &item.text, right, &attributes);
+            add_tooltip(item, right, width);
         }
 
         let mut left = PAD;
@@ -276,8 +322,26 @@ impl StatusBar {
                 break;
             }
             draw_item(&shown, &shown.text, left, &attributes);
+            add_tooltip(item, left, width);
             left += width;
         }
+        drop(status);
+        self.set_tooltips(tooltips);
+    }
+
+    /// Registers the tooltip rects, if they changed since the last draw.
+    fn set_tooltips(&self, tooltips: Vec<(NSRect, String)>) {
+        let mut current = self.ivars().tooltips.borrow_mut();
+        if *current == tooltips {
+            return;
+        }
+        self.removeAllToolTips();
+        for (rect, _) in &tooltips {
+            // SAFETY: the bar implements `view:stringForToolTip:point:userData:`
+            // and outlives its own tooltips; no user data is passed.
+            unsafe { self.addToolTipRect_owner_userData(*rect, self, std::ptr::null_mut()) };
+        }
+        *current = tooltips;
     }
 }
 
