@@ -50,6 +50,13 @@ dame play --time 2
 dame hub
 ```
 
+On macOS, `scripts/bundle-macos.sh` builds `Dame.app`, a native board that
+plays against the engine (see [macOS app](https://KarelZe.github.io/dame-rs/macos/)).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/KarelZe/dame-rs/main/docs/assets/macos-app.png" alt="Dame.app, a native macOS board, in the middle of a game against the engine" width="480">
+</p>
+
 See [Playing](https://KarelZe.github.io/dame-rs/playing/) for details and
 [Engine design](https://KarelZe.github.io/dame-rs/design/) for how the engine works.
 

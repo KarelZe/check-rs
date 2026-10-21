@@ -1,0 +1,75 @@
+# macOS app
+
+`Dame.app` is a native macOS front end, written in Rust against AppKit. It
+draws the board, checks your moves with the `dame` crate, and runs the engine
+as a separate process that it talks to over the [Hub protocol](playing.md#in-a-gui-the-hub-protocol).
+It needs macOS 12 or later.
+
+![Dame.app in the middle of a game: a white man is selected, its two legal destinations are marked, and the status bar shows the engine's expected line, depth and score.](assets/macos-app.png)
+
+## Build and run
+
+The app is not distributed yet. Build it from a checkout:
+
+```bash
+scripts/bundle-macos.sh        # builds target/release/Dame.app
+open target/release/Dame.app
+```
+
+The bundle holds both binaries: `dame-macos` (the app) and `dame` (the
+engine). During development, `cargo run --release -p dame-macos` works too,
+once `cargo build --release -p dame-cli` has put `dame` next to it.
+
+The app looks for the engine in this order:
+
+1. the `DAME_ENGINE` environment variable, which may name any Hub engine
+   (it is started with the argument `hub`);
+2. `dame` next to the app's executable;
+3. `dame` on the `PATH`.
+
+Without an engine the app still works as a board for two players.
+
+## Playing
+
+Click a piece, then its destination; legal destinations are marked with a dot.
+When two captures start and end on the same squares, the status bar asks you
+to click one of the pieces to take, which picks the route. You can also click
+that piece before the destination.
+
+The status bar at the bottom, styled after the VS Code footer, shows whose
+turn it is and the engine's expected line on the left. On the right are the
+search depth (layers icon), the score in men from White's point of view, the
+time per move (timer icon) and the engine's state (green: ready, yellow:
+thinking). The window uses
+GitHub's dark theme colors.
+
+| Menu   | Command          | Shortcut | |
+|--------|------------------|----------|---|
+| Game   | New Game         | ⌘N       | |
+| Game   | Move Now         | ⌘E       | stops the engine's search, or lets it move for the side to move |
+| Game   | Engine Plays …   |          | Black, White, both, or nobody (two players) |
+| Game   | … Seconds per Move |        | 1, 3, 10 or 30 seconds per engine move |
+| Edit   | Take Back Move   | ⌘Z       | takes back your last move and the engine's reply |
+| Edit   | Copy Position    | ⌘C       | the position as FEN |
+| Edit   | Copy Moves       | ⇧⌘C      | the game in PDN move notation |
+| Edit   | Paste Position   | ⌘V       | sets up a FEN or Hub position |
+| View   | Flip Board       | ⌘F       | |
+
+## Design
+
+* **AppKit through [objc2](https://github.com/madsmtm/objc2).** Apple ships no
+  Rust bindings. `objc2-app-kit` is generated from the AppKit headers in the
+  macOS SDK, so the app uses the real AppKit classes, at their current API.
+  [cacao](https://github.com/ryanmcgrath/cacao) wraps AppKit in a friendlier
+  API, but has not had a release since 2023 and builds on the older `objc`
+  crate. SwiftUI would need Xcode, Swift and an FFI layer to the engine.
+* **The engine is a separate process.** The app speaks the same Hub
+  protocol as any other GUI, so the engine can be swapped (`DAME_ENGINE`),
+  a crashing or busy engine cannot freeze the window, and stopping a search
+  works the same as in every Hub GUI.
+* **The rules live in the app too.** Move input, legality and the end of the
+  game (including the FMJD draw rules) come from the `dame` crate, so the board
+  never depends on the engine for correctness.
+* **Main-thread state.** AppKit objects live on the main thread; so does the
+  controller. A reader thread parses the engine's output and wakes the
+  controller through the main dispatch queue.

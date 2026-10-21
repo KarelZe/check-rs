@@ -2,7 +2,7 @@
 //!
 //! The crate is the engine core: board representation, move generation,
 //! search and evaluation. It has no dependencies and no Python coupling; the
-//! `dame-cli` and `dame-python` crates build on top of it.
+//! `dame-cli`, `dame-python` and `dame-macos` crates build on top of it.
 //!
 //! ```
 //! use dame::{Position, perft};
@@ -24,6 +24,7 @@ pub mod book;
 pub mod egdb;
 pub mod eval;
 pub mod game;
+pub mod hub;
 mod movegen;
 pub mod moves;
 pub mod notation;
