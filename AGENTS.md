@@ -19,6 +19,7 @@ core — prefer Rust-side optimizations over Python wrappers.
 - `crates/dame-python/` — PyO3 bindings, built as `dame._core`
 - `crates/dame-macos/` — native macOS app (AppKit via objc2); a stub elsewhere
 - `scripts/bundle-macos.sh` — builds `target/release/Dame.app`
+- `scripts/dmg-macos.sh` — packs it into the `.dmg` attached to releases
 - `python/dame/` — Python package: re-exports, type stubs (`_core.pyi`)
 - `tests/` — pytest suite
 - `docs/` — Zensical documentation source
@@ -71,7 +72,8 @@ measured on the same hardware, kept only if it wins.
   a conventional commit (checked by `.github/workflows/pr-title.yml`).
 - release-please keeps a release PR open that bumps the version and
   `CHANGELOG.md`. Merging it tags the release, creates the GitHub Release and
-  publishes the wheels to PyPI.
+  publishes the wheels to PyPI. The release also gets the wheels and the
+  macOS app's `.dmg`.
 - Never bump versions or push tags by hand.
 
 ## Third-party code
