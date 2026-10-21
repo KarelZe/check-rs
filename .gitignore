@@ -192,6 +192,7 @@ debug/
 ## visualizations
 *.png
 !docs/assets/*.png
+!crates/dame-macos/assets/*.png
 
 ## benchmarks
 bench*.json

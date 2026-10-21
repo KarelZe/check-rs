@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Dame app icon: one white king on warm wood, on the macOS icon grid. -->
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b98458"/>
+      <stop offset="1" stop-color="#6f4527"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ece3d2"/>
+    </linearGradient>
+    <!-- One gradient across the whole side, so its two shapes meet without a seam. -->
+    <linearGradient id="side" gradientUnits="userSpaceOnUse" x1="0" y1="500" x2="0" y2="790">
+      <stop offset="0" stop-color="#d9ccb4"/>
+      <stop offset="1" stop-color="#b9a98c"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f2c94c"/>
+      <stop offset="1" stop-color="#d49a1c"/>
+    </linearGradient>
+    <filter id="piece-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="28" stdDeviation="26" flood-color="#2a160a" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="url(#wood)"/>
+  <g filter="url(#piece-shadow)">
+    <!-- The side of the disc, then its top face. -->
+    <ellipse cx="512" cy="590" rx="270" ry="200" fill="url(#side)"/>
+    <rect x="242" y="500" width="540" height="90" fill="url(#side)"/>
+    <ellipse cx="512" cy="500" rx="270" ry="200" fill="url(#face)"/>
+  </g>
+  <ellipse cx="512" cy="500" rx="206" ry="152" fill="none" stroke="#e2d7c3" stroke-width="10"/>
+  <path d="M412 548 L392 438 L462 490 L512 412 L562 490 L632 438 L612 548 Z"
+        fill="url(#gold)" stroke="#b07d12" stroke-width="10" stroke-linejoin="round"/>
+</svg>

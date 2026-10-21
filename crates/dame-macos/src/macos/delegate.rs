@@ -3,14 +3,16 @@
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject, Sel};
-use objc2::{MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{AnyThread, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameDarkAqua, NSApplication,
     NSApplicationDelegate, NSAutoresizingMaskOptions, NSBackingStoreType, NSControlStateValueOff,
-    NSControlStateValueOn, NSEventModifierFlags, NSMenu, NSMenuItem, NSMenuItemValidation, NSView,
-    NSWindow, NSWindowStyleMask,
+    NSControlStateValueOn, NSEventModifierFlags, NSImage, NSMenu, NSMenuItem, NSMenuItemValidation,
+    NSView, NSWindow, NSWindowStyleMask,
 };
-use objc2_foundation::{NSNotification, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString};
+use objc2_foundation::{
+    NSBundle, NSData, NSNotification, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+};
 
 use super::app::{App, MOVE_TIMES, Players};
 use super::board_view::BoardView;
@@ -35,6 +37,7 @@ define_class!(
             let mtm = self.mtm();
             let app = NSApplication::sharedApplication(mtm);
             app.setMainMenu(Some(&main_menu(mtm)));
+            set_icon_unless_bundled(&app);
             let (window, board, status) = main_window(mtm);
             APP.with(|cell| *cell.borrow_mut() = Some(App::new(board, status)));
             window.makeKeyAndOrderFront(None);
@@ -77,6 +80,11 @@ define_class!(
         #[unsafe(method(moveNow:))]
         fn move_now(&self, _sender: Option<&AnyObject>) {
             with_app(App::move_now);
+        }
+
+        #[unsafe(method(reloadEngine:))]
+        fn reload_engine(&self, _sender: Option<&AnyObject>) {
+            with_app(App::reload_engine);
         }
 
         #[unsafe(method(flipBoard:))]
@@ -152,6 +160,19 @@ fn validate(app: &App, item: &NSMenuItem) -> bool {
         app.can_take_back()
     } else {
         true
+    }
+}
+
+/// Gives `cargo run` builds the app icon; a bundle has it in `Info.plist`,
+/// at every resolution.
+fn set_icon_unless_bundled(app: &NSApplication) {
+    if NSBundle::mainBundle().bundleIdentifier().is_some() {
+        return;
+    }
+    let data = NSData::with_bytes(include_bytes!("../../assets/icon.png"));
+    if let Some(icon) = NSImage::initWithData(NSImage::alloc(), &data) {
+        // SAFETY: the image is a valid, retained NSImage.
+        unsafe { app.setApplicationIconImage(Some(&icon)) };
     }
 }
 
@@ -288,6 +309,7 @@ fn main_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
     let mut game = vec![
         item(mtm, "New Game", Some(sel!(newGame:)), "n"),
         item(mtm, "Move Now", Some(sel!(moveNow:)), "e"),
+        item(mtm, "Reload Engine", Some(sel!(reloadEngine:)), "r"),
         separator(),
     ];
     for (tag, players) in Players::ALL.iter().enumerate() {
