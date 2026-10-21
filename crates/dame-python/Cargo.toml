@@ -1,0 +1,23 @@
+[package]
+name = "dame-python"
+description = "Python bindings for the dame draughts engine."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+name = "_core"
+# "cdylib" produces the shared library that Python imports.
+crate-type = ["cdylib"]
+
+[dependencies]
+dame = { workspace = true }
+pyo3 = { workspace = true }
+
+[lints]
+workspace = true

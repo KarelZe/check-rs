@@ -1,0 +1,55 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/dame", "crates/dame-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+authors = ["Markus Bilz <github@markusbilz.com>"]
+license = "MIT"
+repository = "https://github.com/KarelZe/dame-rs"
+homepage = "https://github.com/KarelZe/dame-rs"
+keywords = ["draughts", "checkers", "engine", "game", "bitboard"]
+categories = ["games", "algorithms"]
+
+[workspace.dependencies]
+dame = { path = "crates/dame", version = "0.1.0" }
+
+clap = { version = "4.6.7", features = ["derive"] }
+criterion = { package = "codspeed-criterion-compat", version = "6.0.0", default-features = false }
+pyo3 = { version = "0.30.1" }
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Bit twiddling on board indices casts between integer widths everywhere.
+cast_possible_truncation = "allow"
+cast_lossless = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+inline_always = "allow"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+todo = "warn"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+# Benchmarks and profiling want release codegen plus symbols.
+[profile.profiling]
+inherits = "release"
+debug = "line-tables-only"
+strip = "none"
