@@ -64,8 +64,8 @@ position is in the book. The app remembers the book across launches.
 **Clear Opening Book** turns it off.
 
 To get started, build `~/draughts/mobydam.pdn` from Moby Dam's games as shown
-in [Getting games](playing.md#getting-games), then open it here. The file
-dialog hides that folder's path; press ⇧⌘G in it to type the path.
+in [Getting games](playing.md#getting-games), then open it here; in the file
+dialog, ⇧⌘G lets you type the path.
 
 While a book is open, the status bar shows a book icon with the book depth:
 how many plies (half-moves) of each game the engine follows. Its tooltip names
