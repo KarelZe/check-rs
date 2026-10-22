@@ -58,11 +58,14 @@ Without an engine the app still works as a board for two players.
 
 Choose **File → Open Opening Book…** (⌘O) to pick a book: a PDN file of
 games, whose first ten moves the engine follows (see
-[Opening book](design.md#opening-book)). [Getting games](playing.md#getting-games)
-shows how to build one from Moby Dam's game collection. The app restarts the engine with the
+[Opening book](design.md#opening-book)). The app restarts the engine with the
 book and keeps the game; from then on the engine plays book moves while the
 position is in the book. The app remembers the book across launches.
 **Clear Opening Book** turns it off.
+
+To get started, build `~/draughts/mobydam.pdn` from Moby Dam's games as shown
+in [Getting games](playing.md#getting-games), then open it here. The file
+dialog hides that folder's path; press ⇧⌘G in it to type the path.
 
 While a book is open, the status bar shows a book icon with the book depth:
 how many plies (half-moves) of each game the engine follows. Its tooltip names

@@ -58,9 +58,6 @@ export DAME_BOOK=~/draughts/mobydam.pdn   # add to ~/.zshrc to keep it
 dame play
 ```
 
-In the macOS app, open `~/draughts/mobydam.pdn` with **File → Open Opening
-Book…** instead (press ⇧⌘G in the dialog to type the path).
-
 ## On macOS
 
 `Dame.app` is a native board for macOS that plays against `dame` or any
