@@ -43,7 +43,8 @@ print(board)
 The search runs without the GIL and reports progress through an optional
 `info` callback. See the [API Reference](api.md).
 
-To play against the engine or connect it to a GUI, see [Playing](playing.md).
+To play against the engine, use the [command line](cli.md) or the
+[macOS app](macos.md).
 
 !!! example "Experimental"
     `dame` is in early development and was built just for fun with
