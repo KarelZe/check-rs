@@ -3,8 +3,8 @@
 ## Project Overview
 `dame` is an international draughts (10x10 checkers) engine. The engine core
 is a dependency-free Rust crate; a command-line front end speaks the Hub
-protocol and lets you play in the terminal, and a PyO3 extension exposes a
-pythonic API. Performance is the primary design constraint for the engine
+protocol and lets you play in the terminal, a PyO3 extension exposes a
+pythonic API, and a native macOS app drives the engine over Hub. Performance is the primary design constraint for the engine
 core — prefer Rust-side optimizations over Python wrappers.
 
 ## Environment Setup
@@ -17,6 +17,8 @@ core — prefer Rust-side optimizations over Python wrappers.
 - `crates/dame/` — engine core (no dependencies, no Python)
 - `crates/dame-cli/` — `dame` binary: Hub protocol and terminal play
 - `crates/dame-python/` — PyO3 bindings, built as `dame._core`
+- `crates/dame-macos/` — native macOS app (AppKit via objc2); a stub elsewhere
+- `scripts/bundle-macos.sh` — builds `target/release/Dame.app`
 - `python/dame/` — Python package: re-exports, type stubs (`_core.pyi`)
 - `tests/` — pytest suite
 - `docs/` — Zensical documentation source

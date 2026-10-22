@@ -20,6 +20,11 @@ capture. When two captures share their start and end square, list the captured
 pieces as well, e.g. `28x10x14x23`. The commands `moves`, `hint`, `undo` and
 `quit` do what you would expect.
 
+## On macOS
+
+`Dame.app` is a native board for macOS that plays against `dame` or any
+other Hub engine. See [macOS app](macos.md).
+
 ## In a GUI: the Hub protocol
 
 `dame hub` speaks the [Hub protocol](https://github.com/rhalbersma/scan/blob/master/protocol.txt)

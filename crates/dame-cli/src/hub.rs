@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use dame::hub::{Line, quote};
 use dame::search::is_decisive;
 use dame::{Game, Limits, OpeningBook, Position, SearchResult, Searcher};
 
@@ -25,74 +26,6 @@ pub(crate) const SEARCH_STACK_SIZE: usize = 64 << 20;
 
 /// Where engine output goes; shared with the search thread.
 pub(crate) type Output = Arc<Mutex<dyn Write + Send>>;
-
-/// A parsed protocol line: the command and its arguments.
-#[derive(Debug, PartialEq, Eq)]
-struct Line {
-    command: String,
-    args: Vec<(String, String)>,
-}
-
-impl Line {
-    /// Splits `text` into a command and `name[=value]` arguments, honouring
-    /// double quotes. Returns `None` for blank lines.
-    fn parse(text: &str) -> Option<Self> {
-        let mut tokens = Vec::new();
-        let mut token = String::new();
-        let mut quoted = false;
-        let mut started = false;
-        for c in text.chars() {
-            match c {
-                '"' => {
-                    quoted = !quoted;
-                    started = true;
-                }
-                c if c.is_whitespace() && !quoted => {
-                    if started {
-                        tokens.push(std::mem::take(&mut token));
-                        started = false;
-                    }
-                }
-                c => {
-                    token.push(c);
-                    started = true;
-                }
-            }
-        }
-        if started {
-            tokens.push(token);
-        }
-        let mut tokens = tokens.into_iter();
-        let command = tokens.next()?;
-        let args = tokens
-            .map(|token| match token.split_once('=') {
-                Some((name, value)) => (name.to_owned(), value.to_owned()),
-                None => (token, String::new()),
-            })
-            .collect();
-        Some(Self { command, args })
-    }
-
-    fn get(&self, name: &str) -> Option<&str> {
-        self.args
-            .iter()
-            .find(|(n, _)| n == name)
-            .map(|(_, v)| v.as_str())
-    }
-
-    fn has(&self, name: &str) -> bool {
-        self.get(name).is_some()
-    }
-}
-
-/// Quotes `value` if the protocol requires it.
-fn quote(value: &str) -> String {
-    if value.is_empty() || value.contains([' ', '=', '"']) {
-        format!("\"{}\"", value.replace('"', ""))
-    } else {
-        value.to_owned()
-    }
-}
 
 /// The search currently running on the worker thread.
 #[derive(Debug)]
@@ -398,25 +331,6 @@ fn done_line(result: &SearchResult) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parse_lines() {
-        let line = Line::parse(r#"pos pos=Wbbb moves="32-28 19-23" flag"#).unwrap();
-        assert_eq!(line.command, "pos");
-        assert_eq!(line.get("pos"), Some("Wbbb"));
-        assert_eq!(line.get("moves"), Some("32-28 19-23"));
-        assert!(line.has("flag"));
-        assert!(!line.has("missing"));
-        assert!(Line::parse("   ").is_none());
-        assert_eq!(Line::parse(r#"x a="""#).unwrap().get("a"), Some(""));
-    }
-
-    #[test]
-    fn quoting() {
-        assert_eq!(quote("abc"), "abc");
-        assert_eq!(quote(""), "\"\"");
-        assert_eq!(quote("a b"), "\"a b\"");
-    }
 
     /// Runs a scripted session, lets the last search finish and returns the
     /// engine output.

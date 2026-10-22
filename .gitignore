@@ -191,6 +191,7 @@ debug/
 
 ## visualizations
 *.png
+!docs/assets/*.png
 
 ## benchmarks
 bench*.json

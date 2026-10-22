@@ -11,6 +11,7 @@ capture rule. This page records how the engine is built and why.
 | `dame`        | engine core: board, move generation, search, evaluation. No dependencies. |
 | `dame-cli`    | the `dame` binary: Hub protocol, terminal play, perft.     |
 | `dame-python` | PyO3 bindings, imported as `dame._core`.                    |
+| `dame-macos`  | native macOS app: an AppKit board that drives Hub engines.  |
 
 ## Board representation
 

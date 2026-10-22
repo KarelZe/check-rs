@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "AppKit",
         "Bilz",
         "bitboard",
         "bitboards",
@@ -26,6 +27,7 @@
         "movegen",
         "MSRV",
         "negamax",
+        "objc",
         "perft",
         "prek",
         "pyclass",
