@@ -8,10 +8,6 @@
 [^name]: *Dame* is German for draughts (checkers), and also for a king in the game: a
 piece that reaches the far row is crowned a *Dame*.
 
-!!! example "Experimental"
-    `dame` is in early development and was built just for fun with
-    [Claude Code](https://github.com/anthropics/claude-code). The API will change.
-
 ## Installation
 
 Install the latest version from [pypi](https://pypi.org/project/dame-rs/):
@@ -48,3 +44,7 @@ The search runs without the GIL and reports progress through an optional
 `info` callback. See the [API Reference](api.md).
 
 To play against the engine or connect it to a GUI, see [Playing](playing.md).
+
+!!! example "Experimental"
+    `dame` is in early development and was built just for fun with
+    [Claude Code](https://github.com/anthropics/claude-code). The API will change.
