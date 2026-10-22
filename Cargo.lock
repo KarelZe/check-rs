@@ -306,6 +306,7 @@ name = "dame-python"
 version = "0.1.0"
 dependencies = [
  "dame",
+ "dame-cli",
  "pyo3",
 ]
 

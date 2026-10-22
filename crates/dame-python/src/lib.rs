@@ -33,6 +33,13 @@ fn perft(py: Python<'_>, board: &board::Board, depth: u32) -> u64 {
     py.detach(|| dame::perft(&position, depth))
 }
 
+/// Runs the `dame` command line on `args`, the program name first, and
+/// returns its exit code.
+#[pyfunction]
+fn cli(py: Python<'_>, args: Vec<std::ffi::OsString>) -> u8 {
+    py.detach(|| dame_cli::main(args))
+}
+
 #[pymodule]
 mod _core {
     #[pymodule_export]
@@ -42,9 +49,9 @@ mod _core {
     #[pymodule_export]
     use super::engine::{Engine, OpeningBook, SearchInfo, SearchResult};
     #[pymodule_export]
-    use super::perft;
-    #[pymodule_export]
     use super::types::{Color, Move, Outcome, Piece, Termination};
+    #[pymodule_export]
+    use super::{cli, perft};
     use pyo3::prelude::*;
 
     #[pymodule_init]

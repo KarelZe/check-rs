@@ -15,7 +15,8 @@ core — prefer Rust-side optimizations over Python wrappers.
 
 ## Project Structure
 - `crates/dame/` — engine core (no dependencies, no Python)
-- `crates/dame-cli/` — `dame` binary: Hub protocol and terminal play
+- `crates/dame-cli/` — `dame` command: Hub protocol and terminal play; a library
+  too, so the Python package can run it as its `dame` script
 - `crates/dame-python/` — PyO3 bindings, built as `dame._core`
 - `crates/dame-macos/` — native macOS app (AppKit via objc2); a stub elsewhere
 - `scripts/bundle-macos.sh` — builds `target/release/Dame.app`

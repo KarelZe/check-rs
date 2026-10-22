@@ -17,6 +17,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 dame = { workspace = true }
+# The `dame` console script runs the command line inside the extension.
+dame-cli = { path = "../dame-cli" }
 pyo3 = { workspace = true }
 
 [lints]

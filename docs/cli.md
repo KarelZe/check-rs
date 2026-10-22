@@ -5,7 +5,18 @@ engine to draughts GUIs over the Hub protocol.
 
 ## Install
 
-Install it with Cargo; `dame` lands in `~/.cargo/bin`. Add `--tag <version>`,
+The [`dame-rs`](https://pypi.org/project/dame-rs/) package on PyPI ships the
+`dame` command, so the quickest install is:
+
+```bash
+uv tool install dame-rs          # or: pipx install dame-rs
+```
+
+Inside an environment that has `dame-rs` installed, `dame` and
+`python -m dame` work too. It is the same Rust code as the binary below, run
+from the Python extension.
+
+Or install it with Cargo; `dame` lands in `~/.cargo/bin`. Add `--tag <version>`,
 e.g. `--tag 0.1.0`, for a specific
 [release](https://github.com/KarelZe/dame-rs/releases):
 
@@ -75,7 +86,7 @@ dame play
 `dame hub` speaks the [Hub protocol](https://github.com/rhalbersma/scan/blob/master/protocol.txt)
 (version 2) on standard input and output, so any Hub GUI can run it, e.g.
 Fabien Letouzey's [Hub](https://github.com/rhalbersma/hub). Point `hub.ini` at
-the binary:
+the binary (`which dame` shows where it was installed):
 
 ```ini
 engine-dir = /path/to/dame-rs/target/release
@@ -102,3 +113,20 @@ dame search --fen "B:W18,24:BK3" --depth 20
 dame perft 9                     # move generator node count
 dame perft 3 --divide
 ```
+
+## Colored output
+
+In a terminal, `dame play`, `dame search`, `dame perft` and the help are
+colored: White's pieces bold and Black's red, the last move's squares yellow,
+moves cyan, and scores green or red for the side to move. Output that is
+piped or redirected stays plain, and `dame hub` is never colored because GUIs
+read it. The usual environment variables change that, as in ruff, ty or uv:
+
+```bash
+NO_COLOR=1 dame play             # no colors
+FORCE_COLOR=1 dame search | less -R   # colors even through a pipe
+```
+
+`NO_COLOR` wins over `FORCE_COLOR` (and `CLICOLOR_FORCE`). On Windows, colors
+are on in Windows Terminal and Unix-like terminals such as Git Bash; the classic
+console needs `FORCE_COLOR=1`, and only shows them if it supports ANSI codes.

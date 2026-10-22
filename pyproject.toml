@@ -32,6 +32,9 @@ classifiers = [
 
 dependencies = []
 
+[project.scripts]
+dame = "dame.__main__:main"
+
 [project.urls]
 "Homepage" = "https://github.com/KarelZe/dame-rs"
 "Documentation" = "https://KarelZe.github.io/dame-rs/"
