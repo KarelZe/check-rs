@@ -71,6 +71,10 @@ measured on the same hardware, kept only if it wins.
   to the Python package.
 - PRs are squash-merged, so the PR title becomes the commit on `main` and must be
   a conventional commit (checked by `.github/workflows/pr-title.yml`).
+- Never merge a PR with a merge commit. release-please reads every commit
+  reachable from `main`, and a merge commit brings in the branch's own commits
+  plus a commit whose body repeats the PR title. The changelog then lists the
+  change twice. Rebase merges skip the title check, so avoid them as well.
 - release-please keeps a release PR open that bumps the version and
   `CHANGELOG.md`. Merging it tags the release, creates the GitHub Release and
   publishes the wheels to PyPI. The release also gets the wheels and the
