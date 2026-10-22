@@ -437,19 +437,28 @@ impl App {
         }
 
         let Some(session) = &self.session else {
-            status
-                .right
-                .push(Item::new("No engine", Tone::Muted).with_dot(Tone::Danger));
+            status.right.push(
+                Item::new("no engine", Tone::Muted)
+                    .with_dot(Tone::Danger)
+                    .with_tooltip(
+                        "Build `dame` next to the app or set DAME_ENGINE to a Hub engine",
+                    ),
+            );
             return status;
         };
         if let Some(info) = &session.info {
             if !info.pv.is_empty() {
-                status.left.push(Item::new(info.pv.clone(), Tone::Muted));
+                status.left.push(
+                    Item::new(info.pv.clone(), Tone::Muted)
+                        .with_tooltip(format!("Expected line: {}", info.pv)),
+                );
             }
             if let Some(depth) = info.depth {
-                status
-                    .right
-                    .push(Item::new(depth.to_string(), Tone::Muted).with_symbol(DEPTH_SYMBOL));
+                status.right.push(
+                    Item::new(depth.to_string(), Tone::Muted)
+                        .with_symbol(DEPTH_SYMBOL)
+                        .with_tooltip("Search depth in plies"),
+                );
             }
             if let Some(score) = info.score {
                 // Scores are from the searching side; show them for White.
@@ -459,22 +468,27 @@ impl App {
                 } else {
                     -score
                 };
-                status
-                    .right
-                    .push(Item::new(format!("{score:+.2}"), Tone::Muted));
+                status.right.push(
+                    Item::new(format!("{score:+.2}"), Tone::Muted)
+                        .with_tooltip("Evaluation in men, from White's point of view"),
+                );
             }
         }
-        status
-            .right
-            .push(Item::new(format!("{} s", self.move_time), Tone::Muted).with_symbol(TIME_SYMBOL));
+        status.right.push(
+            Item::new(format!("{} s", self.move_time), Tone::Muted)
+                .with_symbol(TIME_SYMBOL)
+                .with_tooltip("Engine thinking time per move; change it in the Game menu"),
+        );
         let (dot, state) = match (session.ready, session.thinking) {
             (false, _) => (Tone::Muted, "starting"),
             (true, Some(_)) => (Tone::Attention, "thinking"),
             (true, None) => (Tone::Success, "ready"),
         };
-        status
-            .right
-            .push(Item::new(format!("{} · {state}", session.name), Tone::Muted).with_dot(dot));
+        status.right.push(
+            Item::new(state, Tone::Muted)
+                .with_dot(dot)
+                .with_tooltip(format!("Engine: {}", session.name)),
+        );
         status
     }
 }

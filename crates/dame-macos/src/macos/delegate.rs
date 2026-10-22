@@ -175,7 +175,10 @@ fn main_window(
     };
     // SAFETY: the window is owned by `Retained`, not released on close.
     unsafe { window.setReleasedWhenClosed(false) };
-    window.setTitle(&NSString::from_str("Dame"));
+    window.setTitle(&NSString::from_str(&format!(
+        "Dame · {}",
+        env!("CARGO_PKG_VERSION")
+    )));
     window.setContentMinSize(NSSize::new(360.0, 360.0 + bar));
     // The board is framed by a dark canvas, so the chrome is dark as well.
     // SAFETY: the appearance name is an immutable framework constant.
