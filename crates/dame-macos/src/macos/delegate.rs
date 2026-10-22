@@ -8,10 +8,10 @@ use objc2_app_kit::{
     NSAppearance, NSAppearanceCustomization, NSAppearanceNameDarkAqua, NSApplication,
     NSApplicationDelegate, NSAutoresizingMaskOptions, NSBackingStoreType, NSControlStateValueOff,
     NSControlStateValueOn, NSEventModifierFlags, NSImage, NSMenu, NSMenuItem, NSMenuItemValidation,
-    NSView, NSWindow, NSWindowStyleMask,
+    NSModalResponseOK, NSOpenPanel, NSView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
-    NSBundle, NSData, NSNotification, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+    NSBundle, NSData, NSNotification, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString, NSURL,
 };
 
 use super::app::{App, MOVE_TIMES, Players};
@@ -87,6 +87,21 @@ define_class!(
             with_app(App::reload_engine);
         }
 
+        #[unsafe(method(openBook:))]
+        fn open_book(&self, _sender: Option<&AnyObject>) {
+            // The panel runs its own event loop; the controller must be free
+            // meanwhile, so the engine's events still reach it.
+            let current = with_app(|app| app.book().map(str::to_owned)).flatten();
+            if let Some(path) = choose_book(self.mtm(), current.as_deref()) {
+                with_app(|app| app.set_book(Some(path)));
+            }
+        }
+
+        #[unsafe(method(clearBook:))]
+        fn clear_book(&self, _sender: Option<&AnyObject>) {
+            with_app(|app| app.set_book(None));
+        }
+
         #[unsafe(method(flipBoard:))]
         fn flip_board(&self, _sender: Option<&AnyObject>) {
             with_app(App::flip);
@@ -158,9 +173,32 @@ fn validate(app: &App, item: &NSMenuItem) -> bool {
         app.has_engine()
     } else if action == sel!(takeBack:) {
         app.can_take_back()
+    } else if action == sel!(clearBook:) {
+        app.book().is_some()
     } else {
         true
     }
+}
+
+/// Asks for an opening book file, starting in the folder of `current`.
+/// Returns `None` if cancelled.
+fn choose_book(mtm: MainThreadMarker, current: Option<&str>) -> Option<String> {
+    let panel = NSOpenPanel::openPanel(mtm);
+    panel.setCanChooseFiles(true);
+    panel.setCanChooseDirectories(false);
+    panel.setAllowsMultipleSelection(false);
+    panel.setMessage(Some(&NSString::from_str(
+        "Choose an opening book: a text file with one line of moves per row, e.g. 32-28 18-23",
+    )));
+    if let Some(folder) = current.and_then(|path| {
+        NSURL::fileURLWithPath(&NSString::from_str(path)).URLByDeletingLastPathComponent()
+    }) {
+        panel.setDirectoryURL(Some(&folder));
+    }
+    if panel.runModal() != NSModalResponseOK {
+        return None;
+    }
+    Some(panel.URL()?.path()?.to_string())
 }
 
 /// Gives `cargo run` builds the app icon; a bundle has it in `Info.plist`,
@@ -289,6 +327,16 @@ fn main_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
             item(mtm, "Show All", Some(sel!(unhideAllApplications:)), ""),
             separator(),
             item(mtm, "Quit Dame", Some(sel!(terminate:)), "q"),
+        ],
+    );
+
+    submenu(
+        mtm,
+        &bar,
+        "File",
+        &[
+            item(mtm, "Open Opening Book…", Some(sel!(openBook:)), "o"),
+            item(mtm, "Clear Opening Book", Some(sel!(clearBook:)), ""),
         ],
     );
 

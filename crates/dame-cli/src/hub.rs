@@ -49,13 +49,14 @@ pub(crate) struct Hub {
 }
 
 impl Hub {
-    pub(crate) fn new(output: Output) -> Self {
+    /// A session whose `book-file` parameter starts out as `book_file`.
+    pub(crate) fn new(output: Output, book_file: String) -> Self {
         Self {
             output,
             game: Game::new(),
             level: Limits::default(),
             hash_mb: 64,
-            book_file: String::new(),
+            book_file,
             book: None,
             searcher: None,
             running: None,
@@ -155,12 +156,9 @@ impl Hub {
     fn init(&mut self) {
         self.book = None;
         if !self.book_file.is_empty() {
-            match std::fs::read_to_string(&self.book_file)
-                .map_err(|err| err.to_string())
-                .and_then(|text| OpeningBook::from_text(&text).map_err(|err| err.to_string()))
-            {
+            match load_book(&self.book_file) {
                 Ok(book) => self.book = Some(Arc::new(book)),
-                Err(err) => self.error(&format!("cannot load book {}: {err}", self.book_file)),
+                Err(err) => self.error(&err),
             }
         }
         let mut searcher = Searcher::new(dame::Classical::default(), self.hash_mb);
@@ -291,6 +289,14 @@ impl Hub {
     }
 }
 
+/// Reads an opening book in the text format; the error names the file.
+pub(crate) fn load_book(path: &str) -> Result<OpeningBook, String> {
+    std::fs::read_to_string(path)
+        .map_err(|err| err.to_string())
+        .and_then(|text| OpeningBook::from_text(&text).map_err(|err| err.to_string()))
+        .map_err(|err| format!("cannot load book {path}: {err}"))
+}
+
 fn send(output: &Output, line: &str) {
     let mut output = output
         .lock()
@@ -335,9 +341,13 @@ mod tests {
     /// Runs a scripted session, lets the last search finish and returns the
     /// engine output.
     fn session(script: &str) -> String {
+        session_with_book(script, "")
+    }
+
+    fn session_with_book(script: &str, book_file: &str) -> String {
         let buffer = Arc::new(Mutex::new(Vec::new()));
         let output: Output = buffer.clone();
-        let mut hub = Hub::new(output);
+        let mut hub = Hub::new(output, book_file.to_owned());
         hub.process(script.as_bytes());
         if let Some(running) = hub.running.take() {
             hub.searcher = Some(running.handle.join().unwrap());
@@ -390,5 +400,32 @@ mod tests {
     fn errors_are_reported() {
         let out = session("init\npos pos=Wxyz\npos pos=start moves=\"32-29\"\n");
         assert_eq!(out.matches("error message=").count(), 2, "{out}");
+    }
+
+    #[test]
+    fn default_book_is_announced_and_played() {
+        let path = std::env::temp_dir().join(format!("dame-hub-book-{}.txt", std::process::id()));
+        std::fs::write(&path, "33-29\n").unwrap();
+        let book_file = path.to_str().unwrap();
+        let out = session_with_book("hub\ninit\nlevel depth=1\ngo think\n", book_file);
+        std::fs::remove_file(&path).unwrap();
+        assert!(
+            out.contains(&format!("param name=book-file value={}", quote(book_file))),
+            "{out}"
+        );
+        // Book moves come without a search, so without `info` lines.
+        assert!(
+            out.contains("done move=33-29") && !out.contains("info "),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn missing_book_is_an_error() {
+        let out = session_with_book("init\n", "/nonexistent/book.txt");
+        assert!(
+            out.contains("error message=\"cannot load book /nonexistent/book.txt:"),
+            "{out}"
+        );
     }
 }

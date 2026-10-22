@@ -1,14 +1,16 @@
 //! The controller: game state, move input and the engine session.
 
 use std::fmt::Write as _;
+use std::path::Path;
 use std::sync::mpsc::{self, Receiver};
 
 use dame::hub::quote;
 use dame::{Color, Game, Move, Position, Square, Termination};
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
-use objc2_foundation::NSString;
+use objc2_foundation::{NSString, NSUserDefaults};
 
 use super::board_view::{BoardView, Scene};
 use super::status_bar::{DEPTH_SYMBOL, Item, SCORE_SYMBOL, Status, StatusBar, TIME_SYMBOL, Tone};
@@ -54,6 +56,9 @@ pub(crate) const MOVE_TIMES: [u32; 4] = [1, 3, 10, 30];
 
 /// Moves of the expected line shown in the status bar; the tooltip has all.
 const SHOWN_PLIES: usize = 6;
+
+/// The user default that remembers the opening book's path.
+const BOOK_KEY: &str = "BookFile";
 
 /// The engine process and what it is doing.
 #[derive(Debug)]
@@ -107,6 +112,8 @@ pub(crate) struct App {
     flipped: bool,
     players: Players,
     move_time: u32,
+    /// The opening book file the engine plays from, if any.
+    book: Option<String>,
     session: Option<Session>,
     /// Shown in the status bar until the next change.
     message: Option<Item>,
@@ -130,6 +137,9 @@ impl App {
                 Players::Nobody
             },
             move_time: MOVE_TIMES[0],
+            book: NSUserDefaults::standardUserDefaults()
+                .stringForKey(&NSString::from_str(BOOK_KEY))
+                .map(|path| path.to_string()),
             session,
             message,
         };
@@ -147,6 +157,10 @@ impl App {
 
     pub(crate) fn has_engine(&self) -> bool {
         self.session.as_ref().is_some_and(|s| s.ready)
+    }
+
+    pub(crate) fn book(&self) -> Option<&str> {
+        self.book.as_deref()
     }
 
     pub(crate) fn can_take_back(&self) -> bool {
@@ -249,6 +263,24 @@ impl App {
         self.refresh();
     }
 
+    /// Plays from the opening book at `path`, or from none, and remembers
+    /// the choice. The engine restarts to load it and keeps the game.
+    pub(crate) fn set_book(&mut self, path: Option<String>) {
+        let defaults = NSUserDefaults::standardUserDefaults();
+        let key = NSString::from_str(BOOK_KEY);
+        match &path {
+            Some(path) => {
+                let value = NSString::from_str(path);
+                let value: &AnyObject = &value;
+                // SAFETY: a string is a valid property-list value.
+                unsafe { defaults.setObject_forKey(Some(value), &key) };
+            }
+            None => defaults.removeObjectForKey(&key),
+        }
+        self.book = path;
+        self.reload_engine();
+    }
+
     pub(crate) fn set_move_time(&mut self, seconds: u32) {
         self.move_time = seconds;
     }
@@ -332,6 +364,12 @@ impl App {
                     .clone_into(&mut session.name);
             }
             Event::Wait => {
+                // Always set the book, so that the app's choice overrides a
+                // DAME_BOOK the engine may have inherited.
+                let book = self.book.as_deref().unwrap_or_default();
+                let _ = session
+                    .engine
+                    .send(&format!("set-param name=book-file value={}", quote(book)));
                 let _ = session.engine.send("init");
             }
             Event::Ready => {
@@ -518,10 +556,18 @@ impl App {
             (true, Some(_)) => (Tone::Attention, "thinking"),
             (true, None) => (Tone::Success, "ready"),
         };
+        let book = self
+            .book
+            .as_deref()
+            .and_then(|path| Path::new(path).file_name())
+            .map_or_else(
+                || "none".to_owned(),
+                |name| name.to_string_lossy().into_owned(),
+            );
         status.right.push(
             Item::new(state, Tone::Muted)
                 .with_dot(dot)
-                .with_tooltip(format!("Engine: {}", session.name)),
+                .with_tooltip(format!("Engine: {}\nOpening book: {book}", session.name)),
         );
         status
     }

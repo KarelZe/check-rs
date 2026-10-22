@@ -51,6 +51,7 @@ the [Hub protocol](https://github.com/rhalbersma/scan/blob/master/protocol.txt):
 cargo install --path crates/dame-cli
 dame play --time 2
 dame hub
+DAME_BOOK=openings.txt dame play      # open games from an opening book
 ```
 
 On macOS, `Dame.app` is a native board that plays against the engine. Download
