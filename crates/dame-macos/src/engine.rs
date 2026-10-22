@@ -18,6 +18,8 @@ use dame::hub::Line;
 pub(crate) enum Event {
     /// `id`: the engine introduces itself.
     Id { name: String, version: String },
+    /// `param`: the engine declares a parameter the GUI may set.
+    Param { name: String },
     /// `wait`: the engine has listed its parameters and waits for `init`.
     Wait,
     /// `ready`: the engine is initialised and accepts searches.
@@ -50,6 +52,9 @@ impl Event {
             "id" => Self::Id {
                 name: text("name"),
                 version: text("version"),
+            },
+            "param" => Self::Param {
+                name: line.get("name")?.to_owned(),
             },
             "wait" => Self::Wait,
             "ready" => Self::Ready,
@@ -179,7 +184,13 @@ mod tests {
             Event::parse("error message=\"bad pos\""),
             Some(Event::Error("bad pos".into()))
         );
-        assert_eq!(Event::parse("param name=hash value=64"), None);
+        assert_eq!(
+            Event::parse("param name=book-file value=\"\" type=string"),
+            Some(Event::Param {
+                name: "book-file".into()
+            })
+        );
+        assert_eq!(Event::parse("param value=64"), None);
         assert_eq!(Event::parse(""), None);
     }
 
