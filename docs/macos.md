@@ -3,18 +3,37 @@
 `Dame.app` is a native macOS front end, written in Rust against AppKit. It
 draws the board, checks your moves with the `dame` crate, and runs the engine
 as a separate process that it talks to over the [Hub protocol](playing.md#in-a-gui-the-hub-protocol).
-It needs macOS 12 or later.
+It needs a Mac with Apple silicon and macOS 12 or later.
 
 ![Dame.app in the middle of a game: a white man is selected, its two legal destinations are marked, and the status bar shows the engine's expected line, depth and score.](assets/macos-app.png)
 
+## Install
+
+Every [GitHub release](https://github.com/KarelZe/dame-rs/releases/latest)
+has a disk image, `Dame-<version>.dmg`, for Macs with Apple silicon. Open it
+and drag `Dame.app` onto `Applications`.
+
+The app is signed ad hoc, not with an Apple Developer ID, so macOS blocks it
+the first time. Open it once, then choose **Open Anyway** under
+System Settings → Privacy & Security. Or clear the download flag in a
+terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Dame.app
+```
+
 ## Build and run
 
-The app is not distributed yet. Build it from a checkout:
+Build the app from a checkout:
 
 ```bash
 scripts/bundle-macos.sh        # builds target/release/Dame.app
 open target/release/Dame.app
 ```
+
+`scripts/dmg-macos.sh` packs the bundle into `target/release/Dame-<version>.dmg`,
+as the release does. The app supports Apple silicon only; on an Intel Mac,
+`bundle-macos.sh` still builds it for local use.
 
 The bundle holds both binaries: `dame-macos` (the app) and `dame` (the
 engine). During development, `cargo run --release -p dame-macos` works too,
