@@ -7,7 +7,7 @@ talks to over the [Hub protocol](cli.md#in-a-gui-the-hub-protocol), so a
 busy or crashing engine never freezes the window.
 It needs a Mac with Apple silicon and macOS 12 or later.
 
-![Dame.app in the middle of a game: a white man is selected, its two legal destinations are marked, and the status bar shows the engine's expected line, depth and score.](assets/macos-app.png)
+![Dame.app in the middle of a game: White's last move to 18 is highlighted, Black is to move, and the status bar shows the expected line behind the fast-forward icon, the search depth, the score, the time per move and the engine's state.](assets/macos-app.png)
 
 ## Install
 
