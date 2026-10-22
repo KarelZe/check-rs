@@ -67,6 +67,8 @@ inherited_members = true
 
 [project.markdown_extensions.admonition]
 
+[project.markdown_extensions.footnotes]
+
 [project.markdown_extensions.toc]
 permalink = true
 

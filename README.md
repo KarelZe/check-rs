@@ -1,7 +1,10 @@
 # dame-rs
 
-`dame` is an extremely fast [international draughts](https://en.wikipedia.org/wiki/International_draughts)
+`dame`[^name] is an extremely fast [international draughts](https://en.wikipedia.org/wiki/International_draughts)
 (10x10 checkers) engine written in Rust 🦀, with a pythonic API.
+
+[^name]: *Dame* is German for draughts (checkers), and also for a king in the game: a
+piece that reaches the far row is crowned a *Dame*.
 
 > [!WARNING]
 > `dame` is in early development. The API will change.
