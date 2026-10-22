@@ -50,6 +50,7 @@
   "packages": {
     ".": {
       "package-name": "dame",
+      "release-as": "0.1.0",
       "extra-files": [
         {
           "type": "toml",
