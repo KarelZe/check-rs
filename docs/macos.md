@@ -83,13 +83,14 @@ to click one of the pieces to take, which picks the route. You can also click
 that piece before the destination.
 
 The status bar at the bottom shows whose turn it is and the first six moves of
-the engine's expected line on the left (the tooltip shows all of it). On the
-right are the search depth (layers icon), the score in men from White's point
-of view (gauge icon), the [book depth](#opening-book) (book icon, click to
-change), the time per move (lightning icon) and the engine's state (green:
-ready, yellow: thinking). Rest the pointer on an item for an explanation; the
-engine's name and version are in the tooltip of its state. **Dame → About
-Dame** shows the app version and links to the project on GitHub.
+the engine's expected line from the current position on the left
+(fast-forward icon; the tooltip shows all of it). On the right are the search
+depth (layers icon), the score in men from White's point of view (gauge icon),
+the [book depth](#opening-book) (book icon, click to change), the time per
+move (lightning icon) and the engine's state (green: ready, yellow: thinking
+or analysing). Rest the pointer on an item for an explanation; the engine's
+name and version are in the tooltip of its state. **Dame → About Dame** shows
+the app version and links to the project on GitHub.
 
 | Menu   | Command          | Shortcut | |
 |--------|------------------|----------|---|
@@ -106,3 +107,29 @@ Dame** shows the app version and links to the project on GitHub.
 | Edit   | Copy Moves       | ⇧⌘C      | the game in PDN move notation |
 | Edit   | Paste Position   | ⌘V       | sets up a FEN or Hub position |
 | View   | Flip Board       | ⌘F       | |
+| View   | Fast Forward     | ⌘→       | plays the next move of the expected line on the board; see [Fast forward](#fast-forward) |
+| View   | Step Back        | ⌘←       | takes back one move of the preview |
+| View   | Back to Game     | Esc      | leaves the preview |
+
+### Fast forward
+
+To see where a move leads, fast forward along the engine's expected line:
+choose **View → Fast Forward** (⌘→) or click the expected line in the status
+bar. Each step plays one more move of the line on the board, without
+touching the game. **Step Back** (⌘←) goes back one move, and **Back to Game**
+(Esc) returns to the game.
+
+While you preview, the board has a yellow frame and the status bar starts with
+**Preview +3: …**, how many moves it is ahead of the game and those moves,
+followed by the moves still ahead. The squares of the earlier moves are
+tinted, the last move is highlighted, and red rings mark the pieces it took.
+Clicks on the board are ignored. Any change to the game (a move by the
+engine, New Game, Take Back Move, Paste Position, Reload Engine) ends the
+preview.
+
+The line is the engine's latest one for the current position, such as the
+continuation it expects after its own move. When there is none, for example
+after a book move or when nobody has searched the position yet, the status
+bar shows only the fast-forward icon: fast forward then lets the engine
+analyse the position for a second, ignoring the opening book, and steps into
+the line it finds. The engine plays nothing during that analysis.
