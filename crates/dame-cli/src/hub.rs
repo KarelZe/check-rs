@@ -24,6 +24,10 @@ use dame::{Game, Limits, OpeningBook, Position, SearchResult, Searcher};
 /// Stack size of the search thread; the recursion keeps move lists on the stack.
 pub(crate) const SEARCH_STACK_SIZE: usize = 64 << 20;
 
+/// The deepest book the `book-plies` parameter allows: no game collection
+/// has theory that deep.
+pub(crate) const MAX_BOOK_PLIES: usize = 200;
+
 /// Where engine output goes; shared with the search thread.
 pub(crate) type Output = Arc<Mutex<dyn Write + Send>>;
 
@@ -43,20 +47,24 @@ pub(crate) struct Hub {
     level: Limits,
     hash_mb: usize,
     book_file: String,
+    /// Plies of each book game that go into the book.
+    book_plies: usize,
     book: Option<Arc<OpeningBook>>,
     searcher: Option<Searcher>,
     running: Option<Running>,
 }
 
 impl Hub {
-    /// A session whose `book-file` parameter starts out as `book_file`.
-    pub(crate) fn new(output: Output, book_file: String) -> Self {
+    /// A session whose `book-file` and `book-plies` parameters start out as
+    /// `book_file` and `book_plies`.
+    pub(crate) fn new(output: Output, book_file: String, book_plies: usize) -> Self {
         Self {
             output,
             game: Game::new(),
             level: Limits::default(),
             hash_mb: 64,
             book_file,
+            book_plies,
             book: None,
             searcher: None,
             running: None,
@@ -126,6 +134,10 @@ impl Hub {
                     "param name=book-file value={} type=string",
                     quote(&self.book_file)
                 ));
+                self.send(&format!(
+                    "param name=book-plies value={} type=int min=1 max={MAX_BOOK_PLIES}",
+                    self.book_plies
+                ));
                 self.send("wait");
             }
             "set-param" => match (line.get("name"), line.get("value")) {
@@ -134,6 +146,10 @@ impl Hub {
                     _ => self.error(&format!("invalid hash size {value}")),
                 },
                 (Some("book-file"), Some(value)) => value.clone_into(&mut self.book_file),
+                (Some("book-plies"), Some(value)) => match value.parse::<usize>() {
+                    Ok(plies) if (1..=MAX_BOOK_PLIES).contains(&plies) => self.book_plies = plies,
+                    _ => self.error(&format!("invalid book depth {value}")),
+                },
                 _ => {}
             },
             "init" => {
@@ -156,7 +172,7 @@ impl Hub {
     fn init(&mut self) {
         self.book = None;
         if !self.book_file.is_empty() {
-            match load_book(&self.book_file) {
+            match load_book(&self.book_file, self.book_plies) {
                 Ok(book) => self.book = Some(Arc::new(book)),
                 Err(err) => self.error(&err),
             }
@@ -289,15 +305,16 @@ impl Hub {
     }
 }
 
-/// Builds an opening book from a PDN file; the error names the file.
-pub(crate) fn load_book(path: &str) -> Result<OpeningBook, String> {
+/// Builds an opening book from the first `plies` moves of each game in a PDN
+/// file; the error names the file.
+pub(crate) fn load_book(path: &str, plies: usize) -> Result<OpeningBook, String> {
     std::fs::read(path)
         .map_err(|err| err.to_string())
         .and_then(|bytes| {
             // Older PDN files are often Latin-1; their non-ASCII text is in
             // tags and comments, never in moves.
             let text = String::from_utf8_lossy(&bytes);
-            OpeningBook::from_pdn(&text, OpeningBook::DEFAULT_PLIES).map_err(|err| err.to_string())
+            OpeningBook::from_pdn(&text, plies).map_err(|err| err.to_string())
         })
         .map_err(|err| format!("cannot load book {path}: {err}"))
 }
@@ -352,7 +369,7 @@ mod tests {
     fn session_with_book(script: &str, book_file: &str) -> String {
         let buffer = Arc::new(Mutex::new(Vec::new()));
         let output: Output = buffer.clone();
-        let mut hub = Hub::new(output, book_file.to_owned());
+        let mut hub = Hub::new(output, book_file.to_owned(), OpeningBook::DEFAULT_PLIES);
         hub.process(script.as_bytes());
         if let Some(running) = hub.running.take() {
             hub.searcher = Some(running.handle.join().unwrap());
@@ -423,6 +440,23 @@ mod tests {
             out.contains("done move=33-29") && !out.contains("info "),
             "{out}"
         );
+        assert!(out.contains("param name=book-plies value=20 "), "{out}");
+    }
+
+    #[test]
+    fn book_depth_is_a_parameter() {
+        let path = std::env::temp_dir().join(format!("dame-hub-plies-{}.pdn", std::process::id()));
+        std::fs::write(&path, "1. 32-28 18-23 *\n").unwrap();
+        let book_file = path.to_str().unwrap();
+        // One ply: the book has White's first move only, so Black searches.
+        let out = session_with_book(
+            "set-param name=book-plies value=1\ninit\npos pos=start moves=32-28\nlevel depth=1\ngo think\n",
+            book_file,
+        );
+        std::fs::remove_file(&path).unwrap();
+        assert!(out.contains("info depth=1 "), "{out}");
+        let out = session("set-param name=book-plies value=0\nset-param name=book-plies value=x\n");
+        assert_eq!(out.matches("error message=").count(), 2, "{out}");
     }
 
     #[test]

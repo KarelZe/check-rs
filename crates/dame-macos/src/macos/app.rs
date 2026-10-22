@@ -5,15 +5,18 @@ use std::path::Path;
 use std::sync::mpsc::{self, Receiver};
 
 use dame::hub::quote;
-use dame::{Color, Game, Move, Position, Square, Termination};
+use dame::{Color, Game, Move, OpeningBook, Position, Square, Termination};
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
+use objc2::sel;
 use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
 use objc2_foundation::{NSString, NSUserDefaults};
 
 use super::board_view::{BoardView, Scene};
-use super::status_bar::{DEPTH_SYMBOL, Item, SCORE_SYMBOL, Status, StatusBar, TIME_SYMBOL, Tone};
+use super::status_bar::{
+    BOOK_SYMBOL, DEPTH_SYMBOL, Item, SCORE_SYMBOL, Status, StatusBar, TIME_SYMBOL, Tone,
+};
 use super::wake_app;
 use crate::engine::{Engine, Event, Info, engine_command};
 use crate::input::MoveInput;
@@ -59,6 +62,11 @@ const SHOWN_PLIES: usize = 6;
 
 /// The user default that remembers the opening book's path.
 const BOOK_KEY: &str = "BookFile";
+/// The user default that remembers the book depth.
+const BOOK_PLIES_KEY: &str = "BookPlies";
+
+/// Book depths offered in the menu, in plies.
+pub(crate) const BOOK_PLIES: [usize; 6] = [8, 12, 16, 20, 30, 40];
 
 /// The engine process and what it is doing.
 #[derive(Debug)]
@@ -114,6 +122,8 @@ pub(crate) struct App {
     move_time: u32,
     /// The opening book file the engine plays from, if any.
     book: Option<String>,
+    /// Plies of each book game the engine follows.
+    book_plies: usize,
     session: Option<Session>,
     /// Shown in the status bar until the next change.
     message: Option<Item>,
@@ -140,6 +150,13 @@ impl App {
             book: NSUserDefaults::standardUserDefaults()
                 .stringForKey(&NSString::from_str(BOOK_KEY))
                 .map(|path| path.to_string()),
+            book_plies: usize::try_from(
+                NSUserDefaults::standardUserDefaults()
+                    .integerForKey(&NSString::from_str(BOOK_PLIES_KEY)),
+            )
+            .ok()
+            .filter(|&plies| plies > 0)
+            .unwrap_or(OpeningBook::DEFAULT_PLIES),
             session,
             message,
         };
@@ -161,6 +178,10 @@ impl App {
 
     pub(crate) fn book(&self) -> Option<&str> {
         self.book.as_deref()
+    }
+
+    pub(crate) fn book_plies(&self) -> usize {
+        self.book_plies
     }
 
     pub(crate) fn can_take_back(&self) -> bool {
@@ -281,6 +302,21 @@ impl App {
         self.reload_engine();
     }
 
+    /// Follows the first `plies` moves of each book game and remembers the
+    /// choice. With a book, the engine restarts to rebuild it.
+    pub(crate) fn set_book_plies(&mut self, plies: usize) {
+        NSUserDefaults::standardUserDefaults().setInteger_forKey(
+            plies.try_into().unwrap_or(isize::MAX),
+            &NSString::from_str(BOOK_PLIES_KEY),
+        );
+        if plies != self.book_plies {
+            self.book_plies = plies;
+            if self.book.is_some() {
+                self.reload_engine();
+            }
+        }
+    }
+
     pub(crate) fn set_move_time(&mut self, seconds: u32) {
         self.move_time = seconds;
     }
@@ -370,6 +406,10 @@ impl App {
                 let _ = session
                     .engine
                     .send(&format!("set-param name=book-file value={}", quote(book)));
+                let _ = session.engine.send(&format!(
+                    "set-param name=book-plies value={}",
+                    self.book_plies
+                ));
                 let _ = session.engine.send("init");
             }
             Event::Ready => {
@@ -546,6 +586,21 @@ impl App {
                 );
             }
         }
+        if let Some(path) = &self.book {
+            let name = Path::new(path)
+                .file_name()
+                .map_or_else(|| path.clone(), |name| name.to_string_lossy().into_owned());
+            status.right.push(
+                Item::new(self.book_plies.to_string(), Tone::Muted)
+                    .with_symbol(BOOK_SYMBOL)
+                    .with_tooltip(format!(
+                        "Opening book {name}: the engine follows the first {} plies of each \
+                         game. Click to change",
+                        self.book_plies
+                    ))
+                    .with_action(sel!(chooseBookPlies:)),
+            );
+        }
         status.right.push(
             Item::new(format!("{} s", self.move_time), Tone::Muted)
                 .with_symbol(TIME_SYMBOL)
@@ -556,18 +611,10 @@ impl App {
             (true, Some(_)) => (Tone::Attention, "thinking"),
             (true, None) => (Tone::Success, "ready"),
         };
-        let book = self
-            .book
-            .as_deref()
-            .and_then(|path| Path::new(path).file_name())
-            .map_or_else(
-                || "none".to_owned(),
-                |name| name.to_string_lossy().into_owned(),
-            );
         status.right.push(
             Item::new(state, Tone::Muted)
                 .with_dot(dot)
-                .with_tooltip(format!("Engine: {}\nOpening book: {book}", session.name)),
+                .with_tooltip(format!("Engine: {}", session.name)),
         );
         status
     }

@@ -5,11 +5,12 @@ use std::cell::RefCell;
 use std::ffi::c_void;
 
 use objc2::rc::Retained;
-use objc2::runtime::AnyObject;
+use objc2::runtime::{AnyObject, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSBezierPath, NSColor, NSFont, NSFontAttributeName, NSFontWeightMedium, NSFontWeightRegular,
-    NSForegroundColorAttributeName, NSImage, NSImageSymbolConfiguration, NSStringDrawing, NSView,
+    NSApplication, NSBezierPath, NSColor, NSCursor, NSEvent, NSFont, NSFontAttributeName,
+    NSFontWeightMedium, NSFontWeightRegular, NSForegroundColorAttributeName, NSImage,
+    NSImageSymbolConfiguration, NSStringDrawing, NSView,
 };
 use objc2_foundation::{NSArray, NSDictionary, NSInteger, NSPoint, NSRect, NSSize, NSString};
 
@@ -30,6 +31,8 @@ pub(crate) const DEPTH_SYMBOL: &str = "square.stack.3d.down.right";
 pub(crate) const SCORE_SYMBOL: &str = "speedometer";
 /// Time per move: how fast the engine plays.
 pub(crate) const TIME_SYMBOL: &str = "bolt";
+/// The opening book.
+pub(crate) const BOOK_SYMBOL: &str = "book";
 
 /// What an item's text or dot means, and so its color.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -68,6 +71,9 @@ pub(crate) struct Item {
     pub(crate) lead: Option<Lead>,
     /// Shown when the pointer rests on the item.
     pub(crate) tooltip: Option<String>,
+    /// Sent up the responder chain, with the bar as sender, when the item
+    /// is clicked.
+    pub(crate) action: Option<Sel>,
 }
 
 impl Item {
@@ -77,7 +83,13 @@ impl Item {
             tone,
             lead: None,
             tooltip: None,
+            action: None,
         }
+    }
+
+    pub(crate) fn with_action(mut self, action: Sel) -> Self {
+        self.action = Some(action);
+        self
     }
 
     pub(crate) fn with_tooltip(mut self, tooltip: impl Into<String>) -> Self {
@@ -124,6 +136,8 @@ pub(crate) struct Ivars {
     status: RefCell<Status>,
     /// Where the items with tooltips were last drawn.
     tooltips: RefCell<Vec<(NSRect, String)>>,
+    /// Where the clickable items were last drawn.
+    actions: RefCell<Vec<(NSRect, Sel)>>,
 }
 
 define_class!(
@@ -145,6 +159,39 @@ define_class!(
         #[unsafe(method(drawRect:))]
         fn draw_rect(&self, _dirty: NSRect) {
             self.draw();
+        }
+
+        /// Clickable items work even while the window is in the background.
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool {
+            true
+        }
+
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
+            let point = self.convertPoint_fromView(event.locationInWindow(), None);
+            let action = self
+                .ivars()
+                .actions
+                .borrow()
+                .iter()
+                .find(|(rect, _)| contains(*rect, point))
+                .map(|&(_, action)| action);
+            if let Some(action) = action {
+                let app = NSApplication::sharedApplication(self.mtm());
+                // SAFETY: item actions are methods of the app delegate that
+                // take the sender as their only argument.
+                unsafe { app.sendAction_to_from(action, None, Some(self)) };
+            }
+        }
+
+        /// Shows the pointing hand over clickable items.
+        #[unsafe(method(resetCursorRects))]
+        fn reset_cursor_rects(&self) {
+            let cursor = NSCursor::pointingHandCursor();
+            for (rect, _) in self.ivars().actions.borrow().iter() {
+                self.addCursorRect_cursor(*rect, &cursor);
+            }
         }
 
         /// The tooltip owner callback; the bar owns all its tooltip rects.
@@ -287,10 +334,14 @@ impl StatusBar {
         };
 
         let mut tooltips = Vec::new();
+        let mut actions = Vec::new();
         let mut add_tooltip = |item: &Item, x: f64, width: f64| {
+            let rect = NSRect::new(NSPoint::new(x, 0.0), NSSize::new(width, height));
             if let Some(tooltip) = &item.tooltip {
-                let rect = NSRect::new(NSPoint::new(x, 0.0), NSSize::new(width, height));
                 tooltips.push((rect, tooltip.clone()));
+            }
+            if let Some(action) = item.action {
+                actions.push((rect, action));
             }
         };
 
@@ -329,6 +380,21 @@ impl StatusBar {
         }
         drop(status);
         self.set_tooltips(tooltips);
+        self.set_actions(actions);
+    }
+
+    /// Records where the clickable items are, if that changed since the last
+    /// draw, and updates the cursor rects to match.
+    fn set_actions(&self, actions: Vec<(NSRect, Sel)>) {
+        let mut current = self.ivars().actions.borrow_mut();
+        if *current == actions {
+            return;
+        }
+        *current = actions;
+        drop(current);
+        if let Some(window) = self.window() {
+            window.invalidateCursorRectsForView(self);
+        }
     }
 
     /// Registers the tooltip rects, if they changed since the last draw.
@@ -353,7 +419,7 @@ mod tests {
 
     #[test]
     fn symbols_exist() {
-        for name in [DEPTH_SYMBOL, SCORE_SYMBOL, TIME_SYMBOL] {
+        for name in [DEPTH_SYMBOL, SCORE_SYMBOL, TIME_SYMBOL, BOOK_SYMBOL] {
             assert!(symbol(name, Tone::Muted).is_some(), "{name}");
         }
     }

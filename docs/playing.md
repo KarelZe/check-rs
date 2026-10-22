@@ -32,6 +32,13 @@ export DAME_BOOK=~/draughts/games.pdn
 dame play                        # the engine plays book moves while it has them
 ```
 
+`DAME_BOOK_PLIES` sets how many plies (half-moves) of each game the engine
+follows, from 1 to 200; the default is 20, ten moves per side:
+
+```bash
+DAME_BOOK_PLIES=12 dame play     # only the first six moves of each game
+```
+
 While a position is in the book, the engine plays a book move without
 searching; `dame play` marks it with `(book)`. A missing file or an illegal
 move in it is an error. `dame search` always searches, so it ignores the book.
@@ -59,9 +66,10 @@ The engine declares two parameters:
 |-------------|--------|---------|----------------------------------------------------|
 | `hash`      | int    | `64`    | transposition table size in MiB                    |
 | `book-file` | string | `$DAME_BOOK` or `""` | opening book: a PDN file of games, see [Opening book](design.md#opening-book) |
+| `book-plies` | int   | `$DAME_BOOK_PLIES` or `20` | plies of each book game the engine follows, 1 to 200 |
 
-A GUI that sets `book-file` overrides `DAME_BOOK`; an empty value turns the
-book off. The book is loaded on `init`, and a file that cannot be loaded is
+A GUI that sets `book-file` or `book-plies` overrides `DAME_BOOK` or
+`DAME_BOOK_PLIES`; an empty `book-file` turns the book off. The book is loaded on `init`, and a file that cannot be loaded is
 reported with an `error` line.
 
 Hub engines also plug into match managers and bots, for example

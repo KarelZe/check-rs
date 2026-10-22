@@ -128,7 +128,8 @@ starting position, and moves that several games share gain weight. Games of
 other variants (`GameType` other than 20) and games that start from a set-up
 position (`FEN`) are skipped; an illegal move is an error that names the game
 and line. Python's `OpeningBook.from_pdn` and `from_file` take another depth
-as `plies`. The searcher picks book moves with probability proportional to
+as `plies`; `dame` reads it from `DAME_BOOK_PLIES` or the Hub parameter
+`book-plies`, and the macOS app from its status bar. The searcher picks book moves with probability proportional to
 their weight. The keys are stable across releases: Zobrist keys
 derive from a fixed seed. A binary, memory-mappable format for large generated
 books can follow.
