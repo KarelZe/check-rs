@@ -64,22 +64,22 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name==='dame')].version"
+          "jsonpath": "$.package[?(@.name.value==='dame')].version"
         },
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name==='dame-cli')].version"
+          "jsonpath": "$.package[?(@.name.value==='dame-cli')].version"
         },
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name==='dame-macos')].version"
+          "jsonpath": "$.package[?(@.name.value==='dame-macos')].version"
         },
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name==='dame-python')].version"
+          "jsonpath": "$.package[?(@.name.value==='dame-python')].version"
         }
       ]
     }
