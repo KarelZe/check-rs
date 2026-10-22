@@ -20,19 +20,32 @@
 #![warn(missing_docs)]
 
 pub mod bitboard;
+pub mod book;
+pub mod egdb;
+pub mod eval;
+pub mod game;
 mod movegen;
 pub mod moves;
+pub mod notation;
 mod perft;
 pub mod piece;
 pub mod position;
+pub mod search;
 pub mod square;
+mod tt;
 mod zobrist;
 
 pub use bitboard::Bitboard;
+pub use book::OpeningBook;
+pub use egdb::{EndgameDb, Wdl};
+pub use eval::{Classical, Evaluate};
+pub use game::{Game, IllegalMoveError, Outcome, Termination};
 pub use moves::{Move, MoveList};
+pub use notation::ParseMoveError;
 pub use perft::{divide, perft};
 pub use piece::{Color, Piece, PieceKind};
-pub use position::{Position, PositionError};
+pub use position::{Position, PositionError, START_FEN};
+pub use search::{Info, Limits, SearchResult, Searcher};
 pub use square::Square;
 
 /// The crate version, as declared in `Cargo.toml`.
