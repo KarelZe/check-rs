@@ -96,6 +96,8 @@ struct Search {
 struct Session {
     engine: Engine,
     name: String,
+    /// The parameters the engine declared; the app sets only these.
+    params: Vec<String>,
     ready: bool,
     thinking: Option<Search>,
     /// Searches that were stopped and whose `done` must be ignored.
@@ -122,6 +124,7 @@ impl Session {
             Ok(engine) => Ok(Self {
                 engine,
                 name: "engine".into(),
+                params: Vec::new(),
                 ready: false,
                 thinking: None,
                 stale: 0,
@@ -501,17 +504,13 @@ impl App {
                     .trim()
                     .clone_into(&mut session.name);
             }
+            Event::Param { name } => session.params.push(name),
             Event::Wait => {
-                // Always set the book, so that the app's choice overrides a
-                // DAME_BOOK the engine may have inherited.
-                let book = self.book.as_deref().unwrap_or_default();
-                let _ = session
-                    .engine
-                    .send(&format!("set-param name=book-file value={}", quote(book)));
-                let _ = session.engine.send(&format!(
-                    "set-param name=book-plies value={}",
-                    self.book_plies
-                ));
+                for command in
+                    param_commands(&session.params, self.book.as_deref(), self.book_plies)
+                {
+                    let _ = session.engine.send(&command);
+                }
                 let _ = session.engine.send("init");
             }
             Event::Ready => {
@@ -860,6 +859,26 @@ impl App {
     }
 }
 
+/// The `set-param` commands for the app's settings that the engine
+/// `declared`. Hub does not say how an engine treats a parameter it never
+/// declared, and some report an error, so the others are left out. The book
+/// is set even when there is none, so that the app's choice overrides a
+/// `DAME_BOOK` the engine may have inherited.
+fn param_commands(declared: &[String], book: Option<&str>, book_plies: usize) -> Vec<String> {
+    let has = |name: &str| declared.iter().any(|param| param == name);
+    let mut commands = Vec::new();
+    if has("book-file") {
+        commands.push(format!(
+            "set-param name=book-file value={}",
+            quote(book.unwrap_or_default())
+        ));
+    }
+    if has("book-plies") {
+        commands.push(format!("set-param name=book-plies value={book_plies}"));
+    }
+    commands
+}
+
 fn danger(text: impl Into<String>) -> Item {
     Item::new(text, Tone::Danger)
 }
@@ -897,5 +916,31 @@ mod tests {
         assert_eq!(shorten("32-28 19-23 28x19", 3), "32-28 19-23 28x19");
         assert_eq!(shorten("32-28 19-23 28x19 14x23", 3), "32-28 19-23 28x19 …");
         assert_eq!(shorten("", 3), "");
+    }
+
+    #[test]
+    fn only_declared_parameters_are_set() {
+        let declared = |names: &[&str]| names.iter().map(|&n| n.to_owned()).collect::<Vec<_>>();
+        assert_eq!(
+            param_commands(
+                &declared(&["hash", "book-file", "book-plies"]),
+                Some("a b.pdn"),
+                12
+            ),
+            [
+                "set-param name=book-file value=\"a b.pdn\"",
+                "set-param name=book-plies value=12",
+            ]
+        );
+        // No book: an empty value turns off one the engine inherited.
+        assert_eq!(
+            param_commands(&declared(&["book-file"]), None, 20),
+            ["set-param name=book-file value=\"\""]
+        );
+        // Another Hub engine without these parameters gets none of them.
+        assert_eq!(
+            param_commands(&declared(&["hash", "variant"]), Some("book.pdn"), 20),
+            Vec::<String>::new()
+        );
     }
 }

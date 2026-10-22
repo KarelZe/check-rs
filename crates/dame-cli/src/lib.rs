@@ -7,6 +7,7 @@
 
 mod hub;
 mod play;
+mod style;
 
 use std::env;
 use std::ffi::OsString;
@@ -14,8 +15,8 @@ use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use clap::{Parser, Subcommand, ValueEnum};
-use dame::{Color, Game, Limits, OpeningBook, Position, Searcher, divide, perft};
+use clap::{ColorChoice, CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use dame::{Color, Game, Info, Limits, OpeningBook, Position, Searcher, divide, perft};
 
 /// The environment variable that names the opening book for `hub` and `play`.
 const BOOK_VAR: &str = "DAME_BOOK";
@@ -29,7 +30,9 @@ const BOOK_PLIES_VAR: &str = "DAME_BOOK_PLIES";
     about,
     after_help = "Environment:\n  \
         DAME_BOOK        opening book (PDN games) for the hub and play commands\n  \
-        DAME_BOOK_PLIES  plies of each book game the engine follows [default: 20]"
+        DAME_BOOK_PLIES  plies of each book game the engine follows [default: 20]\n  \
+        NO_COLOR         turn colored output off\n  \
+        FORCE_COLOR      color output even when it is not a terminal"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -131,8 +134,31 @@ fn book_plies() -> Result<usize, String> {
         })
 }
 
+/// One line of search progress, with the labels dimmed and the score
+/// colored.
+fn search_info(info: &Info, paint: style::Painter) -> String {
+    let pv: Vec<String> = info.pv.iter().map(ToString::to_string).collect();
+    let label = |name| paint.paint(style::DIM, name);
+    format!(
+        "{} {:>2}  {} {:>2}  {} {}  {} {:>11}  {} {:>7.3}s  {} {}",
+        label("depth"),
+        info.depth,
+        label("seldepth"),
+        info.seldepth,
+        label("score"),
+        paint.score(info.score, 7),
+        label("nodes"),
+        info.nodes,
+        label("time"),
+        info.elapsed.as_secs_f64(),
+        label("pv"),
+        pv.join(" ")
+    )
+}
+
 #[allow(clippy::cast_precision_loss)]
 fn run(cli: Cli) -> Result<(), String> {
+    let paint = style::Painter::stdout();
     match cli.command {
         Command::Hub => {
             let output: hub::Output = Arc::new(Mutex::new(io::stdout()));
@@ -169,7 +195,8 @@ fn run(cli: Cli) -> Result<(), String> {
             let nodes = if split {
                 let moves = divide(&pos, depth);
                 for (mv, count) in &moves {
-                    println!("{:<12} {count}", mv.to_hub());
+                    let hub = format!("{:<12}", mv.to_hub());
+                    println!("{} {count}", paint.paint(style::MOVE, hub));
                 }
                 moves.iter().map(|(_, count)| count).sum()
             } else {
@@ -177,8 +204,16 @@ fn run(cli: Cli) -> Result<(), String> {
             };
             let seconds = start.elapsed().as_secs_f64();
             println!(
-                "perft({depth}) = {nodes} in {seconds:.3}s ({:.1} Mnps)",
-                nodes as f64 / seconds.max(1e-9) / 1e6
+                "{} {} {}",
+                paint.paint(style::DIM, format!("perft({depth}) =")),
+                paint.paint(style::BOLD, nodes),
+                paint.paint(
+                    style::DIM,
+                    format!(
+                        "in {seconds:.3}s ({:.1} Mnps)",
+                        nodes as f64 / seconds.max(1e-9) / 1e6
+                    )
+                ),
             );
         }
         Command::Search {
@@ -190,21 +225,20 @@ fn run(cli: Cli) -> Result<(), String> {
             let game = Game::from_position(position(fen.as_deref())?);
             let mut searcher = Searcher::new(dame::Classical::default(), hash);
             let result = searcher.search(&game, &limits(time, depth)?, |info| {
-                let pv: Vec<String> = info.pv.iter().map(ToString::to_string).collect();
-                println!(
-                    "depth {:>2}  seldepth {:>2}  score {:+7.2}  nodes {:>11}  time {:>7.3}s  pv {}",
-                    info.depth,
-                    info.seldepth,
-                    f64::from(info.score) / 100.0,
-                    info.nodes,
-                    info.elapsed.as_secs_f64(),
-                    pv.join(" ")
-                );
+                println!("{}", search_info(info, paint));
             });
             match result.best_move {
                 Some(mv) => println!(
-                    "bestmove {mv} ({:.2} Mnps)",
-                    result.nodes as f64 / result.elapsed.as_secs_f64().max(1e-9) / 1e6
+                    "{} {} {}",
+                    paint.paint(style::BOLD, "bestmove"),
+                    paint.paint(style::MOVE, mv),
+                    paint.paint(
+                        style::DIM,
+                        format!(
+                            "({:.2} Mnps)",
+                            result.nodes as f64 / result.elapsed.as_secs_f64().max(1e-9) / 1e6
+                        )
+                    ),
                 ),
                 None => println!("the game is over"),
             }
@@ -220,13 +254,25 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let code = match Cli::try_parse_from(args) {
+    // Help and usage errors follow the same color settings as the rest of
+    // the output.
+    let color = if style::Painter::stdout().is_colored() {
+        ColorChoice::Always
+    } else {
+        ColorChoice::Never
+    };
+    let cli = Cli::command()
+        .color(color)
+        .try_get_matches_from(args)
+        .and_then(|matches| Cli::from_arg_matches(&matches));
+    let code = match cli {
         Ok(cli) => match run(cli) {
             Ok(()) => 0,
             Err(err) => {
+                let paint = style::Painter::stderr();
                 #[allow(clippy::print_stderr)]
                 {
-                    eprintln!("error: {err}");
+                    eprintln!("{} {err}", paint.paint(style::ERROR, "error:"));
                 }
                 1
             }
