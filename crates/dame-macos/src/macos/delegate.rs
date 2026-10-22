@@ -8,9 +8,9 @@ use objc2_app_kit::{
     NSAboutPanelOptionApplicationName, NSAboutPanelOptionApplicationVersion,
     NSAboutPanelOptionCredits, NSAboutPanelOptionVersion, NSAppearance, NSAppearanceCustomization,
     NSAppearanceNameDarkAqua, NSApplication, NSApplicationDelegate, NSAutoresizingMaskOptions,
-    NSBackingStoreType, NSControlStateValueOff, NSControlStateValueOn, NSEventModifierFlags,
-    NSFont, NSFontAttributeName, NSImage, NSLinkAttributeName, NSMenu, NSMenuItem,
-    NSMenuItemValidation, NSModalResponseOK, NSMutableParagraphStyle, NSOpenPanel,
+    NSBackingStoreType, NSControlStateValueOff, NSControlStateValueOn, NSEvent,
+    NSEventModifierFlags, NSFont, NSFontAttributeName, NSImage, NSLinkAttributeName, NSMenu,
+    NSMenuItem, NSMenuItemValidation, NSModalResponseOK, NSMutableParagraphStyle, NSOpenPanel,
     NSParagraphStyleAttributeName, NSTextAlignment, NSView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
@@ -18,7 +18,7 @@ use objc2_foundation::{
     NSRect, NSSize, NSString, NSURL,
 };
 
-use super::app::{App, MOVE_TIMES, Players};
+use super::app::{App, BOOK_PLIES, MOVE_TIMES, Players};
 use super::board_view::BoardView;
 use super::palette;
 use super::status_bar::{self, StatusBar};
@@ -111,6 +111,25 @@ define_class!(
             with_app(|app| app.set_book(None));
         }
 
+        #[unsafe(method(setBookPlies:))]
+        fn set_book_plies(&self, sender: &NSMenuItem) {
+            if let Ok(plies) = usize::try_from(sender.tag()) {
+                with_app(|app| app.set_book_plies(plies));
+            }
+        }
+
+        /// Pops up the book depths under the pointer, e.g. for a click on
+        /// the status bar.
+        #[unsafe(method(chooseBookPlies:))]
+        fn choose_book_plies(&self, _sender: Option<&AnyObject>) {
+            let mtm = self.mtm();
+            let menu = NSMenu::new(mtm);
+            for entry in book_plies_items(mtm) {
+                menu.addItem(&entry);
+            }
+            menu.popUpMenuPositioningItem_atLocation_inView(None, NSEvent::mouseLocation(), None);
+        }
+
         #[unsafe(method(flipBoard:))]
         fn flip_board(&self, _sender: Option<&AnyObject>) {
             with_app(App::flip);
@@ -184,6 +203,9 @@ fn validate(app: &App, item: &NSMenuItem) -> bool {
         app.can_take_back()
     } else if action == sel!(clearBook:) {
         app.book().is_some()
+    } else if action == sel!(setBookPlies:) {
+        check(usize::try_from(tag) == Ok(app.book_plies()));
+        true
     } else {
         true
     }
@@ -343,6 +365,23 @@ fn item(
     }
 }
 
+/// The book depths, each checked when chosen.
+fn book_plies_items(mtm: MainThreadMarker) -> Vec<Retained<NSMenuItem>> {
+    BOOK_PLIES
+        .iter()
+        .map(|&plies| {
+            let entry = item(
+                mtm,
+                &format!("{plies} Plies ({} Moves Each)", plies / 2),
+                Some(sel!(setBookPlies:)),
+                "",
+            );
+            entry.setTag(plies as isize);
+            entry
+        })
+        .collect()
+}
+
 fn submenu(
     mtm: MainThreadMarker,
     bar: &NSMenu,
@@ -357,6 +396,17 @@ fn submenu(
     holder.setSubmenu(Some(&menu));
     bar.addItem(&holder);
     menu
+}
+
+/// The File menu's submenu of book depths.
+fn book_depth(mtm: MainThreadMarker) -> Retained<NSMenuItem> {
+    let menu = NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str("Book Depth"));
+    for entry in book_plies_items(mtm) {
+        menu.addItem(&entry);
+    }
+    let holder = item(mtm, "Book Depth", None, "");
+    holder.setSubmenu(Some(&menu));
+    holder
 }
 
 fn main_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
@@ -388,6 +438,8 @@ fn main_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
         &[
             item(mtm, "Open Opening Book…", Some(sel!(openBook:)), "o"),
             item(mtm, "Clear Opening Book", Some(sel!(clearBook:)), ""),
+            separator(),
+            book_depth(mtm),
         ],
     );
 

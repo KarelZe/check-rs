@@ -60,11 +60,16 @@ Choose **File → Open Opening Book…** (⌘O) to pick a book: a PDN file of
 games, whose first ten moves the engine follows (see
 [Opening book](design.md#opening-book)). The app restarts the engine with the
 book and keeps the game; from then on the engine plays book moves while the
-position is in the book. The app remembers the book across launches, and the
-tooltip of the engine's state names it. **Clear Opening Book** turns it off.
+position is in the book. The app remembers the book across launches.
+**Clear Opening Book** turns it off.
 
-The app always tells the engine which book to use, so `DAME_BOOK` has no
-effect on it. If the file cannot be loaded, the status bar shows the engine's
+While a book is open, the status bar shows a book icon with the book depth:
+how many plies (half-moves) of each game the engine follows. Its tooltip names
+the book. Click it, or use **File → Book Depth**, to choose 8 to 40 plies; the
+engine restarts to rebuild the book, and the app remembers the depth.
+
+The app always tells the engine which book and depth to use, so `DAME_BOOK`
+and `DAME_BOOK_PLIES` have no effect on it. If the file cannot be loaded, the status bar shows the engine's
 error.
 
 ## Playing
@@ -77,10 +82,11 @@ that piece before the destination.
 The status bar at the bottom, styled after the VS Code footer, shows whose
 turn it is and the first six moves of the engine's expected line on the left
 (the tooltip shows all of it). On the right are the search depth (layers
-icon), the score in men from White's point of view (gauge icon), the time per
-move (lightning icon) and the engine's state (green: ready, yellow:
-thinking). Rest the pointer on an item for an explanation; the engine's name
-and version, and the opening book, are in the tooltip of its state. The window
+icon), the score in men from White's point of view (gauge icon), the
+[book depth](#opening-book) (book icon, click to change), the time per move
+(lightning icon) and the engine's state (green: ready, yellow: thinking). Rest
+the pointer on an item for an explanation; the engine's name and version are
+in the tooltip of its state. The window
 uses GitHub's dark theme colors. **Dame → About Dame** shows the app version
 and links to the project on GitHub.
 
@@ -88,6 +94,7 @@ and links to the project on GitHub.
 |--------|------------------|----------|---|
 | File   | Open Opening Book… | ⌘O     | the engine plays from this book; see [Opening book](#opening-book) |
 | File   | Clear Opening Book |        | the engine searches every move |
+| File   | Book Depth       |          | 8 to 40 plies of each book game; also by clicking the book icon in the status bar |
 | Game   | New Game         | ⌘N       | |
 | Game   | Move Now         | ⌘E       | stops the engine's search, or lets it move for the side to move |
 | Game   | Reload Engine    | ⌘R       | restarts the engine process and keeps the game, e.g. after rebuilding `dame` |

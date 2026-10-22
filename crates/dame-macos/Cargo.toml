@@ -29,6 +29,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
   "NSCell",
   "NSColor",
   "NSControl",
+  "NSCursor",
   "NSEvent",
   "NSFont",
   "NSFontDescriptor",

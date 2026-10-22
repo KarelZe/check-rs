@@ -12,17 +12,21 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use clap::{Parser, Subcommand, ValueEnum};
-use dame::{Color, Game, Limits, Position, Searcher, divide, perft};
+use dame::{Color, Game, Limits, OpeningBook, Position, Searcher, divide, perft};
 
 /// The environment variable that names the opening book for `hub` and `play`.
 const BOOK_VAR: &str = "DAME_BOOK";
+/// The environment variable that sets how many plies of each book game count.
+const BOOK_PLIES_VAR: &str = "DAME_BOOK_PLIES";
 
 /// A fast international draughts engine.
 #[derive(Debug, Parser)]
 #[command(
     version,
     about,
-    after_help = "Environment:\n  DAME_BOOK  opening book (PDN games) for the hub and play commands"
+    after_help = "Environment:\n  \
+        DAME_BOOK        opening book (PDN games) for the hub and play commands\n  \
+        DAME_BOOK_PLIES  plies of each book game the engine follows [default: 20]"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -106,12 +110,30 @@ fn book_file() -> String {
     env::var(BOOK_VAR).unwrap_or_default()
 }
 
+/// The book depth set by `DAME_BOOK_PLIES`, or the default if unset.
+fn book_plies() -> Result<usize, String> {
+    let value = env::var(BOOK_PLIES_VAR).unwrap_or_default();
+    if value.is_empty() {
+        return Ok(OpeningBook::DEFAULT_PLIES);
+    }
+    value
+        .parse()
+        .ok()
+        .filter(|plies| (1..=hub::MAX_BOOK_PLIES).contains(plies))
+        .ok_or_else(|| {
+            format!(
+                "{BOOK_PLIES_VAR} must be a number of plies from 1 to {}, not `{value}`",
+                hub::MAX_BOOK_PLIES
+            )
+        })
+}
+
 #[allow(clippy::cast_precision_loss)]
 fn run(cli: Cli) -> Result<(), String> {
     match cli.command {
         Command::Hub => {
             let output: hub::Output = Arc::new(Mutex::new(io::stdout()));
-            hub::Hub::new(output, book_file()).run(io::stdin().lock());
+            hub::Hub::new(output, book_file(), book_plies()?).run(io::stdin().lock());
         }
         Command::Play {
             color,
@@ -129,7 +151,7 @@ fn run(cli: Cli) -> Result<(), String> {
             let book = if book_file.is_empty() {
                 None
             } else {
-                Some(Arc::new(hub::load_book(&book_file)?))
+                Some(Arc::new(hub::load_book(&book_file, book_plies()?)?))
             };
             play::play(game, human, &limits(time, depth)?, hash, book)
                 .map_err(|e| e.to_string())?;
