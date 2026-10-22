@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0](https://github.com/KarelZe/dame-rs/compare/0.1.0...0.1.0) (2026-10-22)
+## [0.1.0](https://github.com/KarelZe/dame-rs/releases/tag/0.1.0) (2026-10-22)
 
 
 ### Features
