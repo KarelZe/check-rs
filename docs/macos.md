@@ -20,6 +20,10 @@ The bundle holds both binaries: `dame-macos` (the app) and `dame` (the
 engine). During development, `cargo run --release -p dame-macos` works too,
 once `cargo build --release -p dame-cli` has put `dame` next to it.
 
+The app icon is drawn in `crates/dame-macos/assets/icon.svg`. After editing
+it, `scripts/macos-icon.sh` renders `icon.png` (needs ImageMagick); the bundle
+script turns that into the `.icns` file with tools that ship with macOS.
+
 The app looks for the engine in this order:
 
 1. the `DAME_ENGINE` environment variable, which may name any Hub engine
@@ -48,6 +52,7 @@ version, and the window uses GitHub's dark theme colors.
 |--------|------------------|----------|---|
 | Game   | New Game         | ⌘N       | |
 | Game   | Move Now         | ⌘E       | stops the engine's search, or lets it move for the side to move |
+| Game   | Reload Engine    | ⌘R       | restarts the engine process and keeps the game, e.g. after rebuilding `dame` |
 | Game   | Engine Plays …   |          | Black, White, both, or nobody (two players) |
 | Game   | … Seconds per Move |        | 1, 3, 10 or 30 seconds per engine move |
 | Edit   | Take Back Move   | ⌘Z       | takes back your last move and the engine's reply |

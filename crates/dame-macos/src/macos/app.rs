@@ -63,6 +63,36 @@ struct Session {
     /// Searches that were stopped and whose `done` must be ignored.
     stale: u32,
     info: Option<Info>,
+    /// Events from this engine process only, so a replaced engine's last
+    /// words cannot reach its successor.
+    events: Receiver<Event>,
+}
+
+impl Session {
+    /// Starts the engine; the error is ready for the status bar.
+    fn start() -> Result<Self, Item> {
+        let (tx, events) = mpsc::channel();
+        let wake = move |event| {
+            // The receiver goes away when the engine is replaced or the app
+            // quits; the event is moot then.
+            let _ = tx.send(event);
+            DispatchQueue::main().exec_async(wake_app);
+        };
+        match Engine::spawn(engine_command(), wake) {
+            Ok(engine) => Ok(Self {
+                engine,
+                name: "engine".into(),
+                ready: false,
+                thinking: None,
+                stale: 0,
+                info: None,
+                events,
+            }),
+            Err(err) => Err(danger(format!(
+                "Cannot start the engine ({err}): build `dame` or set DAME_ENGINE"
+            ))),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -74,7 +104,6 @@ pub(crate) struct App {
     flipped: bool,
     players: Players,
     move_time: u32,
-    events: Receiver<Event>,
     session: Option<Session>,
     /// Shown in the status bar until the next change.
     message: Option<Item>,
@@ -82,30 +111,9 @@ pub(crate) struct App {
 
 impl App {
     pub(crate) fn new(board: Retained<BoardView>, status: Retained<StatusBar>) -> Self {
-        let (tx, events) = mpsc::channel();
-        let wake = move |event| {
-            // The receiver only goes away when the app quits.
-            let _ = tx.send(event);
-            DispatchQueue::main().exec_async(wake_app);
-        };
-        let (session, message) = match Engine::spawn(engine_command(), wake) {
-            Ok(engine) => {
-                let session = Session {
-                    engine,
-                    name: "engine".into(),
-                    ready: false,
-                    thinking: None,
-                    stale: 0,
-                    info: None,
-                };
-                (Some(session), None)
-            }
-            Err(err) => (
-                None,
-                Some(danger(format!(
-                    "Cannot start the engine ({err}): build `dame` or set DAME_ENGINE"
-                ))),
-            ),
+        let (session, message) = match Session::start() {
+            Ok(session) => (Some(session), None),
+            Err(message) => (None, Some(message)),
         };
         let mut app = Self {
             board,
@@ -119,7 +127,6 @@ impl App {
                 Players::Nobody
             },
             move_time: MOVE_TIMES[0],
-            events,
             session,
             message,
         };
@@ -220,6 +227,25 @@ impl App {
         self.think_if_engine_to_move();
     }
 
+    /// Restarts the engine process, e.g. after rebuilding it, and keeps the
+    /// game. The engine picks up where it left off if it is to move.
+    pub(crate) fn reload_engine(&mut self) {
+        // Dropping the session asks the old engine to quit.
+        self.session = None;
+        match Session::start() {
+            Ok(session) => {
+                self.session = Some(session);
+                self.message = None;
+            }
+            Err(message) => {
+                self.players = Players::Nobody;
+                self.message = Some(message);
+            }
+        }
+        self.input.clear();
+        self.refresh();
+    }
+
     pub(crate) fn set_move_time(&mut self, seconds: u32) {
         self.move_time = seconds;
     }
@@ -282,7 +308,11 @@ impl App {
 
     /// Handles everything the engine has sent so far.
     pub(super) fn drain_events(&mut self) {
-        while let Ok(event) = self.events.try_recv() {
+        while let Some(event) = self
+            .session
+            .as_ref()
+            .and_then(|session| session.events.try_recv().ok())
+        {
             self.handle(event);
         }
         self.refresh();
