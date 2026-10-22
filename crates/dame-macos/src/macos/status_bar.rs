@@ -34,7 +34,7 @@ pub(crate) const TIME_SYMBOL: &str = "bolt";
 /// The opening book.
 pub(crate) const BOOK_SYMBOL: &str = "book";
 /// Fast forward along the expected line.
-pub(crate) const FORWARD_SYMBOL: &str = "forward.fill";
+pub(crate) const FORWARD_SYMBOL: &str = "chevron.right.2";
 
 /// What an item's text or dot means, and so its color.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
