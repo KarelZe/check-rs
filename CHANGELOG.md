@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0](https://github.com/KarelZe/dame-rs/compare/0.1.0...0.2.0) (2026-10-22)
+
+
+### Features
+
+* color the dame command line output, configurable with NO_COLOR and FORCE_COLOR ✨ ([fc8e4c6](https://github.com/KarelZe/dame-rs/commit/fc8e4c6043a36a1ca215befd1dfe118b0985b263))
+* color the dame command line output, configurable with NO_COLOR and FORCE_COLOR ✨ ([e752ae5](https://github.com/KarelZe/dame-rs/commit/e752ae5a1ef419aaa2ff41b261ccb328bebe1da0))
+* preview the expected line in the macOS app with fast forward ✨ ([d65e1f3](https://github.com/KarelZe/dame-rs/commit/d65e1f3450dd288669f45faa0120941fbfcd5245))
+* preview the expected line in the macOS app with fast forward ✨ ([d236a50](https://github.com/KarelZe/dame-rs/commit/d236a5089c142184088023474fe3abd2b6817220))
+* ship the dame command in the dame-rs wheel ✨ ([32f439c](https://github.com/KarelZe/dame-rs/commit/32f439cb46602a26f401e120df4b2db75f28f990))
+* ship the dame command in the dame-rs wheel ✨ ([9fd32b1](https://github.com/KarelZe/dame-rs/commit/9fd32b159bbd5429f8f7d47a93c62f6c9a7f3ee8))
+
+
+### Bug Fixes
+
+* publish CPython 3.14 and 3.15 wheels for macOS and Windows 🐛 ([8ba9567](https://github.com/KarelZe/dame-rs/commit/8ba95676c1b60349b8cb732e1de96efba2fb05f5))
+* publish CPython 3.14 and 3.15 wheels for macOS and Windows 🐛 ([64168f9](https://github.com/KarelZe/dame-rs/commit/64168f972b9d2d3b50be69dac4e4dad3f21e0b35))
+* set only the Hub parameters the engine declares in the macOS app 🐛 ([7062f8f](https://github.com/KarelZe/dame-rs/commit/7062f8f2fbfb509f4e2c4ebdec3f235b13a50135))
+* set only the Hub parameters the engine declares in the macOS app 🐛 ([cabb77e](https://github.com/KarelZe/dame-rs/commit/cabb77e4b6ac1ba701a4320bd799ba180204c859))
+
 ## [0.1.0](https://github.com/KarelZe/dame-rs/releases/tag/0.1.0) (2026-10-22)
 
 
