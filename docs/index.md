@@ -8,7 +8,7 @@
 [^name]: *Dame* is German for draughts (checkers), and also for a king in the game: a
 piece that reaches the far row is crowned a *Dame*.
 
-!!! warning "🧪 Experimental"
+!!! example "Experimental"
     `dame` is in early development and was built just for fun with
     [Claude Code](https://github.com/anthropics/claude-code). The API will change.
 
