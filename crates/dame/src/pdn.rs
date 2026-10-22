@@ -187,6 +187,6 @@ mod tests {
     fn black_to_move_numbers_and_empty_text() {
         let games = read_games("1... 19-23 2. 32-28");
         assert_eq!(moves(&games[0]), ["19-23", "32-28"]);
-        assert!(read_games(" \n{only a comment}\n").is_empty());
+        assert_eq!(read_games(" \n{only a comment}\n"), []);
     }
 }
