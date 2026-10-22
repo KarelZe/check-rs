@@ -56,8 +56,9 @@ Without an engine the app still works as a board for two players.
 
 ## Opening book
 
-Choose **File → Open Opening Book…** (⌘O) to pick a book in the
-[text format](design.md#opening-book). The app restarts the engine with the
+Choose **File → Open Opening Book…** (⌘O) to pick a book: a PDN file of
+games, whose first ten moves the engine follows (see
+[Opening book](design.md#opening-book)). The app restarts the engine with the
 book and keeps the game; from then on the engine plays book moves while the
 position is in the book. The app remembers the book across launches, and the
 tooltip of the engine's state names it. **Clear Opening Book** turns it off.

@@ -195,21 +195,22 @@ class TestEngine:
         assert result.best_move in Board().legal_moves
 
     def test_book(self) -> None:
-        book = OpeningBook.from_text("32-28 18-23\n32-28 17-21\n33-28")
+        book = OpeningBook.from_pdn('[Event "Book"]\n1. 32-28 18-23 *\n1. 32-28 17-21 *\n1. 33-28 *')
         assert len(book) == 2
         assert book.moves(Board()) == [(_move("32-28"), 2), (_move("33-28"), 1)]
         result = Engine(hash_mb=1, book=book).search(Board(), depth=4)
         assert result.from_book
         assert str(result.best_move) in {"32-28", "33-28"}
-        with pytest.raises(ValueError, match="line 1"):
-            OpeningBook.from_text("32-23")
+        assert len(OpeningBook.from_pdn("1. 32-28 18-23 *", plies=1)) == 1
+        with pytest.raises(ValueError, match="game 1, line 1"):
+            OpeningBook.from_pdn("1. 32-23 *")
 
     def test_book_from_file(self, tmp_path: Path) -> None:
-        path = tmp_path / "book.txt"
-        path.write_text("32-28\n")
+        path = tmp_path / "book.pdn"
+        path.write_bytes('[White "Gantvarg"]\n[Black "\xe9"]\n1. 32-28 *\n'.encode("latin-1"))
         assert len(OpeningBook.from_file(path)) == 1
         with pytest.raises(OSError, match="missing"):
-            OpeningBook.from_file(path.parent / "missing.txt")
+            OpeningBook.from_file(path.parent / "missing.pdn")
 
     def test_concurrent_searches(self) -> None:
         results: list[Move | None] = []

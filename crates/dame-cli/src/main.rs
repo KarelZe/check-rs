@@ -22,7 +22,7 @@ const BOOK_VAR: &str = "DAME_BOOK";
 #[command(
     version,
     about,
-    after_help = "Environment:\n  DAME_BOOK  opening book (text format) for the hub and play commands"
+    after_help = "Environment:\n  DAME_BOOK  opening book (PDN games) for the hub and play commands"
 )]
 struct Cli {
     #[command(subcommand)]

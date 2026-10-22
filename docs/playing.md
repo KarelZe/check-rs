@@ -22,17 +22,19 @@ pieces as well, e.g. `28x10x14x23`. The commands `moves`, `hint`, `undo` and
 
 ## Opening book
 
-Set `DAME_BOOK` to an opening book in the [text format](design.md#opening-book)
-and the engine opens games from it, in `dame play` and `dame hub`:
+An opening book is a PDN file of games; the engine follows the first ten
+moves of each (see [Opening book](design.md#opening-book)). Any game collection
+works, e.g. a download from a game database. Set `DAME_BOOK` to the file and the
+engine opens games from it, in `dame play` and `dame hub`:
 
 ```bash
-export DAME_BOOK=~/draughts/openings.txt
+export DAME_BOOK=~/draughts/games.pdn
 dame play                        # the engine plays book moves while it has them
 ```
 
 While a position is in the book, the engine plays a book move without
-searching; `dame play` marks it with `(book)`. A missing or invalid file is an
-error. `dame search` always searches, so it ignores the book.
+searching; `dame play` marks it with `(book)`. A missing file or an illegal
+move in it is an error. `dame search` always searches, so it ignores the book.
 
 ## On macOS
 
@@ -56,7 +58,7 @@ The engine declares two parameters:
 | Parameter   | Type   | Default | Meaning                                            |
 |-------------|--------|---------|----------------------------------------------------|
 | `hash`      | int    | `64`    | transposition table size in MiB                    |
-| `book-file` | string | `$DAME_BOOK` or `""` | opening book in the [text format](design.md#opening-book) |
+| `book-file` | string | `$DAME_BOOK` or `""` | opening book: a PDN file of games, see [Opening book](design.md#opening-book) |
 
 A GUI that sets `book-file` overrides `DAME_BOOK`; an empty value turns the
 book off. The book is loaded on `init`, and a file that cannot be loaded is

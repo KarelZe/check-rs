@@ -111,18 +111,25 @@ regression, in the style of Scan and Kingsrow.
 
 ## Opening book
 
-`OpeningBook` maps Zobrist hashes to weighted moves. The text format has one
-opening line per row:
+`OpeningBook` maps Zobrist hashes to weighted moves. It is built from a
+collection of games in PDN (Portable Draughts Notation), the format game
+databases and draughts sites export:
 
 ```text
-# comments start with `#`
-32-28 18-23 37-32 12-18
-33-28 17-21
+[Event "Two openings"]
+[Result "1-1"]
+1. 32-28 18-23 2. 37-32 12-18 {comments and (side lines) are skipped} 1-1
+
+1. 33-28 17-21 *
 ```
 
-Each move along each line is added from the starting position, and moves that
-several lines share gain weight. The searcher picks book moves with probability
-proportional to their weight. The keys are stable across releases: Zobrist keys
+The first 20 plies (ten moves per side) of each game are added from the
+starting position, and moves that several games share gain weight. Games of
+other variants (`GameType` other than 20) and games that start from a set-up
+position (`FEN`) are skipped; an illegal move is an error that names the game
+and line. Python's `OpeningBook.from_pdn` and `from_file` take another depth
+as `plies`. The searcher picks book moves with probability proportional to
+their weight. The keys are stable across releases: Zobrist keys
 derive from a fixed seed. A binary, memory-mappable format for large generated
 books can follow.
 

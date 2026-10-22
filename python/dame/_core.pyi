@@ -190,31 +190,34 @@ class OpeningBook:
     """
     An opening book: weighted moves by position.
 
-    The text format has one opening line per row; moves shared by several
-    lines gain weight.
+    A book is built from games in PDN: the first moves of each game are added
+    from the starting position, and moves shared by several games gain weight.
 
     Examples:
-        >>> book = OpeningBook.from_text("32-28 18-23\\n32-28 17-21\\n33-28")
+        >>> book = OpeningBook.from_pdn("1. 32-28 18-23 *\\n1. 32-28 17-21 *\\n1. 33-28 *")
         >>> book.moves(Board())
         [(Move('32-28'), 2), (Move('33-28'), 1)]
     """
 
     @staticmethod
-    def from_text(text: str) -> OpeningBook:
+    def from_pdn(text: str, *, plies: int = 20) -> OpeningBook:
         """
-        Parses a book with one opening line per row.
+        Builds a book from the first `plies` moves of each game in PDN `text`.
+
+        Games of other variants (a `GameType` other than 20) and games that
+        start from another position (a `FEN` tag) are skipped.
 
         Raises:
-            ValueError: If a line contains an illegal move.
+            ValueError: If a game contains an illegal move.
         """
     @staticmethod
-    def from_file(path: str | PathLike[str]) -> OpeningBook:
+    def from_file(path: str | PathLike[str], *, plies: int = 20) -> OpeningBook:
         """
-        Reads a book in the text format from `path`.
+        Builds a book from the first `plies` moves of each game in the PDN file at `path`.
 
         Raises:
             OSError: If the file cannot be read.
-            ValueError: If a line contains an illegal move.
+            ValueError: If a game contains an illegal move.
         """
     def moves(self, board: Board) -> list[tuple[Move, int]]:
         """The book moves for the current position with their weights, heaviest first."""

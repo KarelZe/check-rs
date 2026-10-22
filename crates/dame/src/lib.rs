@@ -28,6 +28,7 @@ pub mod hub;
 mod movegen;
 pub mod moves;
 pub mod notation;
+pub mod pdn;
 mod perft;
 pub mod piece;
 pub mod position;

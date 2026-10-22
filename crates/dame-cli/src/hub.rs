@@ -289,11 +289,16 @@ impl Hub {
     }
 }
 
-/// Reads an opening book in the text format; the error names the file.
+/// Builds an opening book from a PDN file; the error names the file.
 pub(crate) fn load_book(path: &str) -> Result<OpeningBook, String> {
-    std::fs::read_to_string(path)
+    std::fs::read(path)
         .map_err(|err| err.to_string())
-        .and_then(|text| OpeningBook::from_text(&text).map_err(|err| err.to_string()))
+        .and_then(|bytes| {
+            // Older PDN files are often Latin-1; their non-ASCII text is in
+            // tags and comments, never in moves.
+            let text = String::from_utf8_lossy(&bytes);
+            OpeningBook::from_pdn(&text, OpeningBook::DEFAULT_PLIES).map_err(|err| err.to_string())
+        })
         .map_err(|err| format!("cannot load book {path}: {err}"))
 }
 
@@ -404,8 +409,8 @@ mod tests {
 
     #[test]
     fn default_book_is_announced_and_played() {
-        let path = std::env::temp_dir().join(format!("dame-hub-book-{}.txt", std::process::id()));
-        std::fs::write(&path, "33-29\n").unwrap();
+        let path = std::env::temp_dir().join(format!("dame-hub-book-{}.pdn", std::process::id()));
+        std::fs::write(&path, "[Event \"Book\"]\n1. 33-29 *\n").unwrap();
         let book_file = path.to_str().unwrap();
         let out = session_with_book("hub\ninit\nlevel depth=1\ngo think\n", book_file);
         std::fs::remove_file(&path).unwrap();
