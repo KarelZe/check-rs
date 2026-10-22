@@ -1,0 +1,112 @@
+[build-system]
+requires = ["maturin>=1.14.1,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "dame-rs"
+authors = [{ name = "Markus Bilz", email = "github@markusbilz.com" }]
+description = "An extremely fast international draughts engine for Python, written in Rust 🦀."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+requires-python = ">=3.10"
+keywords = ["draughts", "checkers", "engine", "game", "bitboard"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 3 - Stable",
+  "Programming Language :: Rust",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Games/Entertainment :: Board Games",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
+
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/KarelZe/dame-rs"
+"Documentation" = "https://KarelZe.github.io/dame-rs/"
+"Bug Tracker" = "https://github.com/KarelZe/dame-rs/issues"
+
+[dependency-groups]
+test = ["pytest", "pytest-codspeed>=5.0.1"]
+docs = ["zensical", "mkdocstrings[python]"]
+dev = [
+  { include-group = "test" },
+  { include-group = "docs" },
+  "maturin>=1.14.1,<2.0",
+  "prek>=0.3.11",
+  "ruff",
+  "ty",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -p no:warnings -v --doctest-modules"
+testpaths = ["tests", "python"]
+
+[tool.maturin]
+manifest-path = "crates/dame-python/Cargo.toml"
+module-name = "dame._core"
+python-source = "python"
+features = ["pyo3/extension-module"]
+strip = true
+
+[tool.uv]
+exclude-newer = "7 days"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# See rules: https://docs.astral.sh/ruff/rules/
+select = [
+  "A",   # shadow builtins
+  "C4",  # Catch incorrect use of comprehensions, dict, list, etc
+  "D",   # pydocstyle
+  "DOC", # pydoclint
+  "E",   # PyCodeStyle errors
+  "F",   # Pyflakes rules
+  "FA",  # Enforce from __future__ import annotations
+  "I",   # isort
+  "ICN", # Use common import conventions
+  "N",   # enforce naming conventions, e.g. ClassName vs function_name
+  "PT",  # pytest style
+  "RET", # Good return practices
+  "RUF", # ruff-specific rules
+  "SIM", # Common simplification rules
+  "TC",  # Enforce importing certain types in a TYPE_CHECKING block
+  "TD",  # Be diligent with TODO comments
+  "TID", # Some good import practices
+  "UP",  # Warn if certain things can changed due to newer Python versions
+  "W",   # PyCodeStyle warnings
+]
+ignore = [
+  "incorrect-blank-line-before-class",
+  "multi-line-summary-first-line",
+  "line-too-long",
+]
+preview = true
+
+[tool.ruff.lint.per-file-ignores]
+# Stubs mirror the Rust docstrings; tests document themselves through names.
+"*.pyi" = ["D", "DOC"]
+"tests/**" = ["D", "DOC"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dame"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.ty.src]
+include = ["python", "tests"]

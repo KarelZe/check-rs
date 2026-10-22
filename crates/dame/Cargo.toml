@@ -1,0 +1,21 @@
+[package]
+name = "dame"
+description = "A fast international draughts (10x10 checkers) engine: bitboard move generation, search and evaluation."
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[lints]
+workspace = true
