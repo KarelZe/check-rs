@@ -247,7 +247,7 @@ fn choose_book(mtm: MainThreadMarker, current: Option<&str>) -> Option<String> {
     panel.setCanChooseDirectories(false);
     panel.setAllowsMultipleSelection(false);
     panel.setMessage(Some(&NSString::from_str(
-        "Choose an opening book: a text file with one line of moves per row, e.g. 32-28 18-23",
+        "Choose an opening book: a PDN file of games; the engine follows their first ten moves",
     )));
     if let Some(folder) = current.and_then(|path| {
         NSURL::fileURLWithPath(&NSString::from_str(path)).URLByDeletingLastPathComponent()

@@ -30,20 +30,23 @@ pub(crate) struct OpeningBook(pub(crate) Arc<dame::OpeningBook>);
 
 #[pymethods]
 impl OpeningBook {
-    /// Parses a book with one opening line per row, e.g. `32-28 18-23 37-32`.
+    /// Builds a book from the first `plies` moves of each game in PDN `text`.
     #[staticmethod]
-    fn from_text(text: &str) -> PyResult<Self> {
-        dame::OpeningBook::from_text(text)
+    #[pyo3(signature = (text, *, plies = dame::OpeningBook::DEFAULT_PLIES))]
+    fn from_pdn(text: &str, plies: usize) -> PyResult<Self> {
+        dame::OpeningBook::from_pdn(text, plies)
             .map(|book| Self(Arc::new(book)))
             .map_err(|err| PyValueError::new_err(err.to_string()))
     }
 
-    /// Reads a book in the text format from `path`.
+    /// Builds a book from the first `plies` moves of each game in the PDN
+    /// file at `path`.
     #[staticmethod]
-    fn from_file(path: std::path::PathBuf) -> PyResult<Self> {
-        let text = std::fs::read_to_string(&path)
+    #[pyo3(signature = (path, *, plies = dame::OpeningBook::DEFAULT_PLIES))]
+    fn from_file(path: std::path::PathBuf, plies: usize) -> PyResult<Self> {
+        let bytes = std::fs::read(&path)
             .map_err(|err| PyOSError::new_err(format!("{}: {err}", path.display())))?;
-        Self::from_text(&text)
+        Self::from_pdn(&String::from_utf8_lossy(&bytes), plies)
     }
 
     /// The book moves for the current position of `board` with their weights,

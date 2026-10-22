@@ -772,7 +772,7 @@ mod tests {
 
     #[test]
     fn book_moves_are_played_first() {
-        let book = OpeningBook::from_text("32-28").unwrap();
+        let book = OpeningBook::from_pdn("1. 32-28 *", OpeningBook::DEFAULT_PLIES).unwrap();
         let mut searcher = Searcher::default();
         searcher.set_book(Some(Arc::new(book)));
         let result = searcher.search(&Game::new(), &Limits::depth(3), |_| {});
