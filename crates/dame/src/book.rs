@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::game::{Game, IllegalMoveError};
+use crate::game::IllegalMoveError;
 use crate::moves::Move;
 use crate::pdn::{self, PdnGame};
 use crate::position::Position;
@@ -75,15 +75,17 @@ impl OpeningBook {
             if !opens_from_start(pdn) {
                 continue;
             }
-            let mut game = Game::new();
+            // A plain position is enough: `parse_move` only returns legal
+            // moves, and the book needs no history or draw counters.
+            let mut pos = Position::initial();
             for (text, line) in pdn.moves.iter().take(plies) {
-                let pos = *game.position();
-                let mv = game.play_str(text).map_err(|error| BookError {
+                let mv = pos.parse_move(text).map_err(|error| BookError {
                     game: index + 1,
                     line: *line,
-                    error,
+                    error: error.into(),
                 })?;
                 book.add(&pos, mv, 1);
+                pos = pos.after(mv);
             }
         }
         Ok(book)
