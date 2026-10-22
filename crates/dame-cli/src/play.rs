@@ -2,9 +2,10 @@
 
 use std::fmt::Write as _;
 use std::io::{self, BufRead, Write};
+use std::sync::Arc;
 use std::thread;
 
-use dame::{Color, Game, Limits, Piece, Position, SearchResult, Searcher, Square};
+use dame::{Color, Game, Limits, OpeningBook, Piece, Position, SearchResult, Searcher, Square};
 
 use crate::hub::SEARCH_STACK_SIZE;
 
@@ -45,14 +46,17 @@ fn think(searcher: &mut Searcher, game: &Game, limits: &Limits) -> SearchResult 
     })
 }
 
-/// Plays a game between a human on standard input and the engine.
+/// Plays a game between a human on standard input and the engine, which
+/// opens from `book` if it has one.
 pub(crate) fn play(
     mut game: Game,
     human: Color,
     limits: &Limits,
     hash_mb: usize,
+    book: Option<Arc<OpeningBook>>,
 ) -> io::Result<()> {
     let mut searcher = Searcher::new(dame::Classical::default(), hash_mb);
+    searcher.set_book(book);
     let stdin = io::stdin();
     let mut out = io::stdout().lock();
     writeln!(
@@ -81,13 +85,17 @@ pub(crate) fn play(
             out.flush()?;
             let result = think(&mut searcher, &game, limits);
             let mv = result.best_move.expect("the game is not over");
-            writeln!(
-                out,
-                "{mv}  (depth {}, score {:+.2}, {} nodes)\n",
-                result.depth,
-                f64::from(result.score) / 100.0,
-                result.nodes
-            )?;
+            if result.from_book {
+                writeln!(out, "{mv}  (book)\n")?;
+            } else {
+                writeln!(
+                    out,
+                    "{mv}  (depth {}, score {:+.2}, {} nodes)\n",
+                    result.depth,
+                    f64::from(result.score) / 100.0,
+                    result.nodes
+                )?;
+            }
             game.play_unchecked(mv);
             continue;
         }

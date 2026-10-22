@@ -20,6 +20,20 @@ capture. When two captures share their start and end square, list the captured
 pieces as well, e.g. `28x10x14x23`. The commands `moves`, `hint`, `undo` and
 `quit` do what you would expect.
 
+## Opening book
+
+Set `DAME_BOOK` to an opening book in the [text format](design.md#opening-book)
+and the engine opens games from it, in `dame play` and `dame hub`:
+
+```bash
+export DAME_BOOK=~/draughts/openings.txt
+dame play                        # the engine plays book moves while it has them
+```
+
+While a position is in the book, the engine plays a book move without
+searching; `dame play` marks it with `(book)`. A missing or invalid file is an
+error. `dame search` always searches, so it ignores the book.
+
 ## On macOS
 
 `Dame.app` is a native board for macOS that plays against `dame` or any
@@ -42,7 +56,11 @@ The engine declares two parameters:
 | Parameter   | Type   | Default | Meaning                                            |
 |-------------|--------|---------|----------------------------------------------------|
 | `hash`      | int    | `64`    | transposition table size in MiB                    |
-| `book-file` | string | `""`    | opening book in the [text format](design.md#opening-book) |
+| `book-file` | string | `$DAME_BOOK` or `""` | opening book in the [text format](design.md#opening-book) |
+
+A GUI that sets `book-file` overrides `DAME_BOOK`; an empty value turns the
+book off. The book is loaded on `init`, and a file that cannot be loaded is
+reported with an `error` line.
 
 Hub engines also plug into match managers and bots, for example
 [pydraughts](https://github.com/AttackingOrDefending/pydraughts)' `HubEngine`.

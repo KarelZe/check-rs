@@ -52,6 +52,18 @@ The app looks for the engine in this order:
 
 Without an engine the app still works as a board for two players.
 
+## Opening book
+
+Choose **File → Open Opening Book…** (⌘O) to pick a book in the
+[text format](design.md#opening-book). The app restarts the engine with the
+book and keeps the game; from then on the engine plays book moves while the
+position is in the book. The app remembers the book across launches, and the
+tooltip of the engine's state names it. **Clear Opening Book** turns it off.
+
+The app always tells the engine which book to use, so `DAME_BOOK` has no
+effect on it. If the file cannot be loaded, the status bar shows the engine's
+error.
+
 ## Playing
 
 Click a piece, then its destination; legal destinations are marked with a dot.
@@ -65,11 +77,13 @@ turn it is and the first six moves of the engine's expected line on the left
 icon), the score in men from White's point of view (gauge icon), the time per
 move (lightning icon) and the engine's state (green: ready, yellow:
 thinking). Rest the pointer on an item for an explanation; the engine's name
-and version are in the tooltip of its state. The window title shows the app
+and version, and the opening book, are in the tooltip of its state. The window title shows the app
 version, and the window uses GitHub's dark theme colors.
 
 | Menu   | Command          | Shortcut | |
 |--------|------------------|----------|---|
+| File   | Open Opening Book… | ⌘O     | the engine plays from this book; see [Opening book](#opening-book) |
+| File   | Clear Opening Book |        | the engine searches every move |
 | Game   | New Game         | ⌘N       | |
 | Game   | Move Now         | ⌘E       | stops the engine's search, or lets it move for the side to move |
 | Game   | Reload Engine    | ⌘R       | restarts the engine process and keeps the game, e.g. after rebuilding `dame` |

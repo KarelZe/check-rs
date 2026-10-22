@@ -5,6 +5,7 @@
 mod hub;
 mod play;
 
+use std::env;
 use std::io;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
@@ -13,9 +14,16 @@ use std::time::{Duration, Instant};
 use clap::{Parser, Subcommand, ValueEnum};
 use dame::{Color, Game, Limits, Position, Searcher, divide, perft};
 
+/// The environment variable that names the opening book for `hub` and `play`.
+const BOOK_VAR: &str = "DAME_BOOK";
+
 /// A fast international draughts engine.
 #[derive(Debug, Parser)]
-#[command(version, about)]
+#[command(
+    version,
+    about,
+    after_help = "Environment:\n  DAME_BOOK  opening book (text format) for the hub and play commands"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -93,12 +101,17 @@ fn limits(time: f64, depth: Option<u32>) -> Result<Limits, String> {
     })
 }
 
+/// The opening book named by `DAME_BOOK`; empty if unset.
+fn book_file() -> String {
+    env::var(BOOK_VAR).unwrap_or_default()
+}
+
 #[allow(clippy::cast_precision_loss)]
 fn run(cli: Cli) -> Result<(), String> {
     match cli.command {
         Command::Hub => {
             let output: hub::Output = Arc::new(Mutex::new(io::stdout()));
-            hub::Hub::new(output).run(io::stdin().lock());
+            hub::Hub::new(output, book_file()).run(io::stdin().lock());
         }
         Command::Play {
             color,
@@ -112,7 +125,14 @@ fn run(cli: Cli) -> Result<(), String> {
                 Side::Black => Color::Black,
             };
             let game = Game::from_position(position(fen.as_deref())?);
-            play::play(game, human, &limits(time, depth)?, hash).map_err(|e| e.to_string())?;
+            let book_file = book_file();
+            let book = if book_file.is_empty() {
+                None
+            } else {
+                Some(Arc::new(hub::load_book(&book_file)?))
+            };
+            play::play(game, human, &limits(time, depth)?, hash, book)
+                .map_err(|e| e.to_string())?;
         }
         Command::Perft {
             depth,
