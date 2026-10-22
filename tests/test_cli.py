@@ -15,8 +15,14 @@ import dame
 
 # The script that `[project.scripts]` installs next to the interpreter.
 SCRIPT = shutil.which("dame", path=sysconfig.get_path("scripts"))
-# Without an opening book from the developer's environment.
-ENV = {key: value for key, value in os.environ.items() if not key.startswith("DAME_")}
+# Without an opening book from the developer's environment, and in plain text
+# even where the environment forces color (FORCE_COLOR, CLICOLOR_FORCE), so the
+# output can be compared as text.
+ENV = {
+    key: value
+    for key, value in os.environ.items()
+    if not key.startswith("DAME_") and key not in {"FORCE_COLOR", "CLICOLOR_FORCE"}
+} | {"NO_COLOR": "1"}
 
 
 def run(*args: str, stdin: str = "") -> subprocess.CompletedProcess[str]:
