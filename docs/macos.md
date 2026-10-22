@@ -63,6 +63,10 @@ book and keeps the game; from then on the engine plays book moves while the
 position is in the book. The app remembers the book across launches.
 **Clear Opening Book** turns it off.
 
+To get started, build `~/draughts/mobydam.pdn` from Moby Dam's games as shown
+in [Getting games](playing.md#getting-games), then open it here; in the file
+dialog, ⇧⌘G lets you type the path.
+
 While a book is open, the status bar shows a book icon with the book depth:
 how many plies (half-moves) of each game the engine follows. Its tooltip names
 the book. Click it, or use **File → Book Depth**, to choose 8 to 40 plies; the

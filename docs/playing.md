@@ -43,6 +43,21 @@ While a position is in the book, the engine plays a book move without
 searching; `dame play` marks it with `(book)`. A missing file or an illegal
 move in it is an error. `dame search` always searches, so it ignores the book.
 
+### Getting games
+
+`dame` ships no games. A ready source is the engine
+[Moby Dam](https://github.com/rhalbersma/mobydam) by Harm Jetten: its
+`book/games` folder has 26 PDN files with about 900 master games and opening
+lines. They are GPL-3.0 licensed, so use them locally rather than adding them
+to this repository. Join them into one file and point `DAME_BOOK` at it:
+
+```bash
+git clone --depth 1 https://github.com/rhalbersma/mobydam.git ~/draughts/mobydam
+cat ~/draughts/mobydam/book/games/*.pdn > ~/draughts/mobydam.pdn
+export DAME_BOOK=~/draughts/mobydam.pdn   # add to ~/.zshrc to keep it
+dame play
+```
+
 ## On macOS
 
 `Dame.app` is a native board for macOS that plays against `dame` or any
