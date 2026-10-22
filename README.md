@@ -6,10 +6,6 @@
 [^name]: *Dame* is German for draughts (checkers), and also for a king in the game: a
 piece that reaches the far row is crowned a *Dame*.
 
-> [!WARNING]
-> 🧪 **Experimental.** `dame` is in early development and was built just for fun
-> with [Claude Code](https://github.com/anthropics/claude-code). The API will change.
-
 ## Installation
 
 ```bash
@@ -76,6 +72,10 @@ uv run prek run --all-files           # linters and formatters
 ```
 
 See [AGENTS.md](AGENTS.md) for the full workflow.
+
+> [!WARNING]
+> 🧪 **Experimental.** `dame` is in early development and was built just for fun
+> with [Claude Code](https://github.com/anthropics/claude-code). The API will change.
 
 ## License
 
