@@ -45,7 +45,7 @@ Play against the engine in the terminal, or plug it into any GUI that speaks
 the [Hub protocol](https://github.com/rhalbersma/scan/blob/master/protocol.txt):
 
 ```bash
-cargo install --path crates/dame-cli
+uv tool install dame-rs               # the `dame` command; or: cargo install --path crates/dame-cli
 dame play --time 2
 dame hub
 DAME_BOOK=games.pdn dame play         # open games from a PDN game collection

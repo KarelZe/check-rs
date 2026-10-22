@@ -339,3 +339,6 @@ def perft(board: Board, depth: int) -> int:
         >>> perft(Board(), 3)
         658
     """
+
+def cli(args: list[str]) -> int:
+    """Runs the `dame` command line on `args`, the program name first, and returns its exit code."""

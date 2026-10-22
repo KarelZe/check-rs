@@ -5,7 +5,18 @@ engine to draughts GUIs over the Hub protocol.
 
 ## Install
 
-Install it with Cargo; `dame` lands in `~/.cargo/bin`. Add `--tag <version>`,
+The [`dame-rs`](https://pypi.org/project/dame-rs/) package on PyPI ships the
+`dame` command, so the quickest install is:
+
+```bash
+uv tool install dame-rs          # or: pipx install dame-rs
+```
+
+Inside an environment that has `dame-rs` installed, `dame` and
+`python -m dame` work too. It is the same Rust code as the binary below, run
+from the Python extension.
+
+Or install it with Cargo; `dame` lands in `~/.cargo/bin`. Add `--tag <version>`,
 e.g. `--tag 0.1.0`, for a specific
 [release](https://github.com/KarelZe/dame-rs/releases):
 
@@ -75,7 +86,7 @@ dame play
 `dame hub` speaks the [Hub protocol](https://github.com/rhalbersma/scan/blob/master/protocol.txt)
 (version 2) on standard input and output, so any Hub GUI can run it, e.g.
 Fabien Letouzey's [Hub](https://github.com/rhalbersma/hub). Point `hub.ini` at
-the binary:
+the binary (`which dame` shows where it was installed):
 
 ```ini
 engine-dir = /path/to/dame-rs/target/release
