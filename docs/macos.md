@@ -3,7 +3,7 @@
 `Dame.app` is a native macOS front end, written in Rust against AppKit with
 [objc2](https://github.com/madsmtm/objc2). It draws the board, checks your
 moves with the `dame` crate, and runs the engine as a separate process that it
-talks to over the [Hub protocol](playing.md#in-a-gui-the-hub-protocol), so a
+talks to over the [Hub protocol](cli.md#in-a-gui-the-hub-protocol), so a
 busy or crashing engine never freezes the window.
 It needs a Mac with Apple silicon and macOS 12 or later.
 
@@ -61,6 +61,10 @@ games, whose first ten moves the engine follows (see
 book and keeps the game; from then on the engine plays book moves while the
 position is in the book. The app remembers the book across launches.
 **Clear Opening Book** turns it off.
+
+To get started, build `~/draughts/mobydam.pdn` from Moby Dam's games as shown
+in [Getting games](cli.md#getting-games), then open it here; in the file
+dialog, ⇧⌘G lets you type the path.
 
 While a book is open, the status bar shows a book icon with the book depth:
 how many plies (half-moves) of each game the engine follows. Its tooltip names

@@ -9,7 +9,7 @@ edit_uri = "edit/main/docs/"
 
 nav = [
   { Home = "index.md" },
-  { Playing = "playing.md" },
+  { "Command line" = "cli.md" },
   { "macOS app" = "macos.md" },
   { "Engine design" = "design.md" },
   { "API Reference" = "api.md" },

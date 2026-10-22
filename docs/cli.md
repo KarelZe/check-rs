@@ -1,13 +1,25 @@
-# Playing
+# Command line
 
-The `dame` binary is the engine's command-line front end. Build it from a
-checkout with:
+The `dame` command plays in the terminal, analyses positions and connects the
+engine to draughts GUIs over the Hub protocol.
+
+## Install
+
+Install it with Cargo; `dame` lands in `~/.cargo/bin`. Add `--tag <version>`,
+e.g. `--tag 0.1.0`, for a specific
+[release](https://github.com/KarelZe/dame-rs/releases):
+
+```bash
+cargo install --locked --git https://github.com/KarelZe/dame-rs dame-cli
+```
+
+Or build it from a checkout:
 
 ```bash
 cargo install --path crates/dame-cli
 ```
 
-## In the terminal
+## Play in the terminal
 
 ```bash
 dame play                        # you play White, 2 s per engine move
@@ -43,10 +55,20 @@ While a position is in the book, the engine plays a book move without
 searching; `dame play` marks it with `(book)`. A missing file or an illegal
 move in it is an error. `dame search` always searches, so it ignores the book.
 
-## On macOS
+### Getting games
 
-`Dame.app` is a native board for macOS that plays against `dame` or any
-other Hub engine. See [macOS app](macos.md).
+`dame` ships no games. A ready source is the engine
+[Moby Dam](https://github.com/rhalbersma/mobydam) by Harm Jetten: its
+`book/games` folder has 26 PDN files with about 900 master games and opening
+lines. They are GPL-3.0 licensed, so use them locally rather than adding them
+to this repository. Join them into one file and point `DAME_BOOK` at it:
+
+```bash
+git clone --depth 1 https://github.com/rhalbersma/mobydam.git ~/draughts/mobydam
+cat ~/draughts/mobydam/book/games/*.pdn > ~/draughts/mobydam.pdn
+export DAME_BOOK=~/draughts/mobydam.pdn   # add to ~/.zshrc to keep it
+dame play
+```
 
 ## In a GUI: the Hub protocol
 
