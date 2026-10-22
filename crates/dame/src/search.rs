@@ -81,9 +81,10 @@ impl Limits {
         }
     }
 
-    /// Soft and hard time budgets: no new iteration starts after the soft
-    /// budget and the search stops at the hard one.
-    fn budgets(&self) -> (Option<Duration>, Option<Duration>) {
+    /// Soft and hard time budgets for this move: no new iteration starts
+    /// once half the soft budget is used, and the search stops at the hard
+    /// budget.
+    pub fn time_budgets(&self) -> (Option<Duration>, Option<Duration>) {
         if let Some(time) = self.move_time {
             return (Some(time), Some(time));
         }
@@ -302,7 +303,7 @@ impl<E: Evaluate> Searcher<E> {
         }
 
         self.prepare(game, limits);
-        let (soft, _) = limits.budgets();
+        let (soft, _) = limits.time_budgets();
         let max_depth = limits.depth.map_or(MAX_PLY as i32 - 1, |d| {
             d.clamp(1, MAX_PLY as u32 - 1) as i32
         });
@@ -361,7 +362,7 @@ impl<E: Evaluate> Searcher<E> {
         self.stopped = false;
         self.stop.clone_from(&limits.stop);
         self.node_limit = limits.nodes.unwrap_or(u64::MAX);
-        self.hard_deadline = limits.budgets().1.map(|hard| self.start + hard);
+        self.hard_deadline = limits.time_budgets().1.map(|hard| self.start + hard);
 
         // Rebuild the repetition path from the game since the last
         // irreversible move.
