@@ -35,8 +35,7 @@ therefore occupies 11 bits, one of which is an unused *ghost* bit (bits 10,
 
 A step off the side of the board lands on a ghost bit, and a step off the top
 or bottom falls outside the 54 used bits. Masking with the set of empty squares
-therefore handles the board edges without per-row masks. Ed Gilbert's endgame
-database code uses the same layout, so probing it needs no conversion.
+therefore handles the board edges without per-row masks.
 
 ## Move generation
 
@@ -57,11 +56,11 @@ move.
 * **Promotion** happens only when a move *ends* on the last row. A man that
   passes through it during a capture stays a man.
 
-The generator is validated with *perft* against published node counts. These
-come from Rein Halbersma's dctl and the damforum.nl perft thread, and were
-cross-checked with an independent reference implementation. The suite covers
-the initial position to depth 9, plus king-heavy and promotion-heavy positions
-(`crates/dame/tests/perft.rs`).
+The generator is validated with *perft* against published node counts from
+the perft tables of Rein Halbersma's [dctl](https://github.com/rhalbersma/dctl)
+and the [damforum.nl perft thread](https://damforum.nl/bb3/viewtopic.php?f=53&t=2308).
+The suite covers the initial position to depth 9, plus king-heavy and
+promotion-heavy positions (`crates/dame/tests/perft.rs`).
 
 ## Search
 
@@ -85,14 +84,6 @@ level (`Game`), the engine implements the FMJD rules:
 * the 25-move rule: kings only, no captures;
 * the 16- and 5-move rules for a lone king against a few pieces.
 
-Planned next steps, each benchmarked on its own:
-
-* ProbCut-style pruning;
-* singular extensions;
-* enhanced transposition cutoffs;
-* Lazy SMP;
-* precomputed king rays in the move generator.
-
 ## Evaluation
 
 `Evaluate` is a trait, and the searcher is generic over it, so evaluation
@@ -104,10 +95,6 @@ evaluation scores, in centi-men from the side to move's point of view:
 * center control;
 * back-row guards;
 * a damping factor in materially drawish endings.
-
-Its main job is to be the baseline a tuned evaluation has to beat. The
-intended successor is a pattern-based evaluation trained by logistic
-regression, in the style of Scan and Kingsrow.
 
 ## Opening book
 
@@ -129,30 +116,12 @@ other variants (`GameType` other than 20) and games that start from a set-up
 position (`FEN`) are skipped; an illegal move is an error that names the game
 and line. Python's `OpeningBook.from_pdn` and `from_file` take another depth
 as `plies`; `dame` reads it from `DAME_BOOK_PLIES` or the Hub parameter
-`book-plies`, and the macOS app from its status bar. The searcher picks book moves with probability proportional to
-their weight. The keys are stable across releases: Zobrist keys
-derive from a fixed seed. A binary, memory-mappable format for large generated
-books can follow.
+`book-plies`, and the macOS app from its status bar.
+
+The searcher picks book moves with probability proportional to their weight.
+The keys are stable across releases: Zobrist keys derive from a fixed seed.
 
 ## Endgame databases
 
-The search probes an `EndgameDb` in positions with few pieces, when the side
-to move has no capture. The planned implementation wraps Ed Gilbert's
-[egdb_intl](https://github.com/eygilbert/egdb_intl) access code, which is
-under the Boost Software License and so compatible with this crate's MIT
-license. It will sit behind an optional Cargo feature.
-
-The databases themselves (up to 8 pieces, about 56 GB for the WLD tables) are
-downloaded separately from Ed Gilbert's site and are not redistributed.
-
-## Licenses of related work
-
-| Project                         | License       | Use in `dame`                         |
-|---------------------------------|---------------|------------------------------------------|
-| egdb_intl (Ed Gilbert)          | Boost 1.0     | may be linked or ported with attribution |
-| dctl (Rein Halbersma)           | Boost 1.0     | perft reference numbers                  |
-| Scan, Hub (Fabien Letouzey)     | GPL-3.0       | ideas and the protocol specification only |
-| BitBully (Markus Thill)         | AGPL-3.0      | API ideas only                           |
-| Cake, CheckerBoard (Martin Fierz) | all rights reserved | ideas only                        |
-
-No code from these projects is included.
+The search can probe an `EndgameDb` in positions with few pieces, when the
+side to move has no capture. No database ships with `dame` yet.

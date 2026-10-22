@@ -51,16 +51,16 @@ other Hub engine. See [macOS app](macos.md).
 ## In a GUI: the Hub protocol
 
 `dame hub` speaks the [Hub protocol](https://github.com/rhalbersma/scan/blob/master/protocol.txt)
-(version 2) on standard input and output. Hub is the protocol of Scan; on macOS
-and Linux, Fabien Letouzey's Hub GUI (a small Java program distributed with
-Scan) can run any Hub engine. Point `hub.ini` at the binary:
+(version 2) on standard input and output, so any Hub GUI can run it, e.g.
+Fabien Letouzey's [Hub](https://github.com/rhalbersma/hub). Point `hub.ini` at
+the binary:
 
 ```ini
 engine-dir = /path/to/dame-rs/target/release
 engine-command = ./dame hub
 ```
 
-The engine declares two parameters:
+The engine declares three parameters:
 
 | Parameter   | Type   | Default | Meaning                                            |
 |-------------|--------|---------|----------------------------------------------------|
@@ -69,16 +69,8 @@ The engine declares two parameters:
 | `book-plies` | int   | `$DAME_BOOK_PLIES` or `20` | plies of each book game the engine follows, 1 to 200 |
 
 A GUI that sets `book-file` or `book-plies` overrides `DAME_BOOK` or
-`DAME_BOOK_PLIES`; an empty `book-file` turns the book off. The book is loaded on `init`, and a file that cannot be loaded is
-reported with an `error` line.
-
-Hub engines also plug into match managers and bots, for example
-[pydraughts](https://github.com/AttackingOrDefending/pydraughts)' `HubEngine`.
-
-!!! note "CheckerBoard"
-    Martin Fierz's CheckerBoard only supports 8x8 variants, and its engine
-    interface is a Windows DLL, so it cannot host an international draughts
-    engine.
+`DAME_BOOK_PLIES`; an empty `book-file` turns the book off. The book is loaded
+on `init`, and a file that cannot be loaded is reported with an `error` line.
 
 ## Other commands
 
