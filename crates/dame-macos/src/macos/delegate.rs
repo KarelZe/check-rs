@@ -5,13 +5,17 @@ use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject, Sel};
 use objc2::{AnyThread, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSAppearance, NSAppearanceCustomization, NSAppearanceNameDarkAqua, NSApplication,
-    NSApplicationDelegate, NSAutoresizingMaskOptions, NSBackingStoreType, NSControlStateValueOff,
-    NSControlStateValueOn, NSEventModifierFlags, NSImage, NSMenu, NSMenuItem, NSMenuItemValidation,
-    NSModalResponseOK, NSOpenPanel, NSView, NSWindow, NSWindowStyleMask,
+    NSAboutPanelOptionApplicationName, NSAboutPanelOptionApplicationVersion,
+    NSAboutPanelOptionCredits, NSAboutPanelOptionVersion, NSAppearance, NSAppearanceCustomization,
+    NSAppearanceNameDarkAqua, NSApplication, NSApplicationDelegate, NSAutoresizingMaskOptions,
+    NSBackingStoreType, NSControlStateValueOff, NSControlStateValueOn, NSEventModifierFlags,
+    NSFont, NSFontAttributeName, NSImage, NSLinkAttributeName, NSMenu, NSMenuItem,
+    NSMenuItemValidation, NSModalResponseOK, NSMutableParagraphStyle, NSOpenPanel,
+    NSParagraphStyleAttributeName, NSTextAlignment, NSView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
-    NSBundle, NSData, NSNotification, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString, NSURL,
+    NSAttributedString, NSBundle, NSData, NSDictionary, NSNotification, NSObjectProtocol, NSPoint,
+    NSRect, NSSize, NSString, NSURL,
 };
 
 use super::app::{App, MOVE_TIMES, Players};
@@ -67,6 +71,11 @@ define_class!(
 
     /// Menu actions; they reach the delegate through the responder chain.
     impl AppDelegate {
+        #[unsafe(method(showAbout:))]
+        fn show_about(&self, _sender: Option<&AnyObject>) {
+            about_panel(&NSApplication::sharedApplication(self.mtm()));
+        }
+
         #[unsafe(method(newGame:))]
         fn new_game(&self, _sender: Option<&AnyObject>) {
             with_app(App::new_game);
@@ -180,6 +189,56 @@ fn validate(app: &App, item: &NSMenuItem) -> bool {
     }
 }
 
+/// Shows the standard About panel with the version and a link to the
+/// project. The options also cover `cargo run` builds, which have no
+/// `Info.plist`.
+fn about_panel(app: &NSApplication) {
+    let repository = env!("CARGO_PKG_REPOSITORY");
+    let link: Retained<AnyObject> = match NSURL::URLWithString(&NSString::from_str(repository)) {
+        Some(url) => url.into(),
+        None => NSString::from_str(repository).into(),
+    };
+    let font = NSFont::systemFontOfSize(NSFont::smallSystemFontSize());
+    let style = NSMutableParagraphStyle::new();
+    style.setAlignment(NSTextAlignment::Center);
+    // SAFETY: the attribute keys are immutable framework constants.
+    let keys = unsafe {
+        [
+            NSLinkAttributeName,
+            NSFontAttributeName,
+            NSParagraphStyleAttributeName,
+        ]
+    };
+    let values: [&AnyObject; 3] = [&link, &font, &style];
+    let attributes = NSDictionary::from_slices(&keys, &values);
+    // SAFETY: the attributes are a link, a font and a paragraph style.
+    let credits = unsafe {
+        NSAttributedString::initWithString_attributes(
+            NSAttributedString::alloc(),
+            &NSString::from_str(repository.trim_start_matches("https://")),
+            Some(&attributes),
+        )
+    };
+
+    let name = NSString::from_str("Dame");
+    let version = NSString::from_str(env!("CARGO_PKG_VERSION"));
+    // An empty build version hides the "(0.1.0)" after the version.
+    let build = NSString::new();
+    // SAFETY: the option keys are immutable framework constants.
+    let keys = unsafe {
+        [
+            NSAboutPanelOptionApplicationName,
+            NSAboutPanelOptionApplicationVersion,
+            NSAboutPanelOptionVersion,
+            NSAboutPanelOptionCredits,
+        ]
+    };
+    let values: [&AnyObject; 4] = [&name, &version, &build, &credits];
+    let options = NSDictionary::from_slices(&keys, &values);
+    // SAFETY: the values have the types the options expect.
+    unsafe { app.orderFrontStandardAboutPanelWithOptions(&options) };
+}
+
 /// Asks for an opening book file, starting in the folder of `current`.
 /// Returns `None` if cancelled.
 fn choose_book(mtm: MainThreadMarker, current: Option<&str>) -> Option<String> {
@@ -234,10 +293,7 @@ fn main_window(
     };
     // SAFETY: the window is owned by `Retained`, not released on close.
     unsafe { window.setReleasedWhenClosed(false) };
-    window.setTitle(&NSString::from_str(&format!(
-        "Dame · {}",
-        env!("CARGO_PKG_VERSION")
-    )));
+    window.setTitle(&NSString::from_str("Dame"));
     window.setContentMinSize(NSSize::new(360.0, 360.0 + bar));
     // The board is framed by a dark canvas, so the chrome is dark as well.
     // SAFETY: the appearance name is an immutable framework constant.
@@ -315,12 +371,7 @@ fn main_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
         &bar,
         "Dame",
         &[
-            item(
-                mtm,
-                "About Dame",
-                Some(sel!(orderFrontStandardAboutPanel:)),
-                "",
-            ),
+            item(mtm, "About Dame", Some(sel!(showAbout:)), ""),
             separator(),
             item(mtm, "Hide Dame", Some(sel!(hide:)), "h"),
             hide_others,

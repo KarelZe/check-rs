@@ -37,7 +37,9 @@ as the release does. The app supports Apple silicon only; on an Intel Mac,
 
 The bundle holds both binaries: `dame-macos` (the app) and `dame` (the
 engine). During development, `cargo run --release -p dame-macos` works too,
-once `cargo build --release -p dame-cli` has put `dame` next to it.
+once `cargo build --release -p dame-cli` has put `dame` next to it. Such a
+build has no bundle; its build script embeds a minimal `Info.plist` in the
+executable, so the menu bar still calls it Dame.
 
 The app icon is drawn in `crates/dame-macos/assets/icon.svg`. After editing
 it, `scripts/macos-icon.sh` renders `icon.png` (needs ImageMagick); the bundle
@@ -77,8 +79,9 @@ turn it is and the first six moves of the engine's expected line on the left
 icon), the score in men from White's point of view (gauge icon), the time per
 move (lightning icon) and the engine's state (green: ready, yellow:
 thinking). Rest the pointer on an item for an explanation; the engine's name
-and version, and the opening book, are in the tooltip of its state. The window title shows the app
-version, and the window uses GitHub's dark theme colors.
+and version, and the opening book, are in the tooltip of its state. The window
+uses GitHub's dark theme colors. **Dame → About Dame** shows the app version
+and links to the project on GitHub.
 
 | Menu   | Command          | Shortcut | |
 |--------|------------------|----------|---|
