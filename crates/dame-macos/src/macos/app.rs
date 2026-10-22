@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::mpsc::{self, Receiver};
 
 use dame::hub::quote;
-use dame::{Color, Game, Move, OpeningBook, Position, Square, Termination};
+use dame::{Bitboard, Color, Game, Move, OpeningBook, Position, Square, Termination};
 use dispatch2::DispatchQueue;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -15,11 +15,13 @@ use objc2_foundation::{NSString, NSUserDefaults};
 
 use super::board_view::{BoardView, Scene};
 use super::status_bar::{
-    BOOK_SYMBOL, DEPTH_SYMBOL, Item, SCORE_SYMBOL, Status, StatusBar, TIME_SYMBOL, Tone,
+    BOOK_SYMBOL, DEPTH_SYMBOL, FORWARD_SYMBOL, Item, SCORE_SYMBOL, Status, StatusBar, TIME_SYMBOL,
+    Tone,
 };
 use super::wake_app;
 use crate::engine::{Engine, Event, Info, engine_command};
 use crate::input::MoveInput;
+use crate::line::{Line, Preview};
 
 /// Who the engine plays for.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -60,6 +62,9 @@ pub(crate) const MOVE_TIMES: [u32; 4] = [1, 3, 10, 30];
 /// Moves of the expected line shown in the status bar; the tooltip has all.
 const SHOWN_PLIES: usize = 6;
 
+/// Seconds the engine looks for the expected line to fast forward along.
+const ANALYSIS_SECONDS: u32 = 1;
+
 /// The user default that remembers the opening book's path.
 const BOOK_KEY: &str = "BookFile";
 /// The user default that remembers the book depth.
@@ -68,17 +73,36 @@ const BOOK_PLIES_KEY: &str = "BookPlies";
 /// Book depths offered in the menu, in plies.
 pub(crate) const BOOK_PLIES: [usize; 6] = [8, 12, 16, 20, 30, 40];
 
+/// What a search is for.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Purpose {
+    /// The engine plays the move it finds.
+    Move,
+    /// Only the expected line is wanted, to fast forward along it; the
+    /// engine's move is not played.
+    Analysis,
+}
+
+/// A running search.
+#[derive(Copy, Clone, Debug)]
+struct Search {
+    /// The position searched.
+    position: Position,
+    purpose: Purpose,
+}
+
 /// The engine process and what it is doing.
 #[derive(Debug)]
 struct Session {
     engine: Engine,
     name: String,
     ready: bool,
-    /// The position the running search is for.
-    thinking: Option<Position>,
+    thinking: Option<Search>,
     /// Searches that were stopped and whose `done` must be ignored.
     stale: u32,
     info: Option<Info>,
+    /// The expected line of the latest search, from the position searched.
+    line: Option<Line>,
     /// Events from this engine process only, so a replaced engine's last
     /// words cannot reach its successor.
     events: Receiver<Event>,
@@ -102,6 +126,7 @@ impl Session {
                 thinking: None,
                 stale: 0,
                 info: None,
+                line: None,
                 events,
             }),
             Err(err) => Err(danger(format!(
@@ -127,6 +152,8 @@ pub(crate) struct App {
     session: Option<Session>,
     /// Shown in the status bar until the next change.
     message: Option<Item>,
+    /// The expected line played through on the board, instead of the game.
+    preview: Option<Preview>,
 }
 
 impl App {
@@ -159,6 +186,7 @@ impl App {
             .unwrap_or(OpeningBook::DEFAULT_PLIES),
             session,
             message,
+            preview: None,
         };
         app.refresh();
         app
@@ -188,15 +216,81 @@ impl App {
         !self.game.moves().is_empty()
     }
 
-    /// Whether a person may move now.
+    /// Whether a person may move now. An analysis does not hold them up.
     fn human_to_move(&self) -> bool {
         !self.game.is_over()
             && !self.players.includes(self.game.position().side_to_move())
-            && self.session.as_ref().is_none_or(|s| s.thinking.is_none())
+            && self.session.as_ref().is_none_or(|s| {
+                s.thinking
+                    .is_none_or(|search| search.purpose == Purpose::Analysis)
+            })
+    }
+
+    /// The board shows the expected line rather than the game.
+    pub(crate) fn is_previewing(&self) -> bool {
+        self.preview.is_some()
+    }
+
+    /// The engine's expected line from the game's position, if it has one.
+    fn expected_line(&self) -> Option<Line> {
+        self.session
+            .as_ref()?
+            .line
+            .as_ref()?
+            .from(self.game.position())
+    }
+
+    /// Whether the engine is free to look for the expected line.
+    fn can_analyse(&self) -> bool {
+        !self.game.is_over()
+            && self
+                .session
+                .as_ref()
+                .is_some_and(|s| s.ready && s.thinking.is_none())
+    }
+
+    pub(crate) fn can_fast_forward(&self) -> bool {
+        match &self.preview {
+            Some(preview) => preview.can_forward(),
+            None => self.expected_line().is_some() || self.can_analyse(),
+        }
+    }
+
+    /// Plays one more ply of the expected line on the board. The first step
+    /// starts the preview; without a line for the position, the engine
+    /// looks for one first.
+    pub(crate) fn fast_forward(&mut self) {
+        match &mut self.preview {
+            Some(preview) => preview.forward(),
+            None => {
+                if let Some(line) = self.expected_line() {
+                    self.preview = Some(Preview::new(line));
+                } else if self.can_analyse() && self.search(Purpose::Analysis) {
+                    self.preview = Some(Preview::new(Line::empty(*self.game.position())));
+                }
+            }
+        }
+        self.input.clear();
+        self.refresh();
+    }
+
+    /// Takes back one ply of the preview, back to the game after the first.
+    pub(crate) fn step_back(&mut self) {
+        if let Some(preview) = &mut self.preview
+            && !preview.back()
+        {
+            self.preview = None;
+        }
+        self.refresh();
+    }
+
+    pub(crate) fn back_to_game(&mut self) {
+        self.preview = None;
+        self.refresh();
     }
 
     pub(crate) fn click(&mut self, square: Option<Square>) {
-        if !self.human_to_move() {
+        if self.preview.is_some() || !self.human_to_move() {
             return;
         }
         let moves = self.game.legal_moves();
@@ -210,6 +304,7 @@ impl App {
     fn play(&mut self, mv: Move) {
         self.input.clear();
         self.message = None;
+        self.preview = None;
         self.game
             .play(mv)
             .expect("moves come from the legal move list");
@@ -230,6 +325,7 @@ impl App {
         self.game = game;
         self.input.clear();
         self.message = None;
+        self.preview = None;
         self.refresh();
     }
 
@@ -239,6 +335,7 @@ impl App {
         self.cancel_search();
         self.input.clear();
         self.message = None;
+        self.preview = None;
         if self.game.undo().is_some() && self.players != Players::Both {
             while self.players.includes(self.game.position().side_to_move())
                 && self.game.undo().is_some()
@@ -255,8 +352,9 @@ impl App {
 
     pub(crate) fn set_players(&mut self, players: Players) {
         self.players = players;
-        if let Some(searched) = self.session.as_ref().and_then(|s| s.thinking)
-            && !players.includes(searched.side_to_move())
+        if let Some(search) = self.session.as_ref().and_then(|s| s.thinking)
+            && search.purpose == Purpose::Move
+            && !players.includes(search.position.side_to_move())
         {
             self.cancel_search();
         }
@@ -270,6 +368,7 @@ impl App {
     pub(crate) fn reload_engine(&mut self) {
         // Dropping the session asks the old engine to quit.
         self.session = None;
+        self.preview = None;
         match Session::start() {
             Ok(session) => {
                 self.session = Some(session);
@@ -327,7 +426,10 @@ impl App {
         let Some(session) = &mut self.session else {
             return;
         };
-        if session.thinking.is_some() {
+        if session
+            .thinking
+            .is_some_and(|search| search.purpose == Purpose::Move)
+        {
             let _ = session.engine.send("stop");
         } else {
             self.think();
@@ -416,31 +518,43 @@ impl App {
                 session.ready = true;
                 self.think_if_engine_to_move();
             }
-            Event::Info(mut info) if session.stale == 0 => {
-                if let Some(searched) = session.thinking {
-                    info.pv = pdn_line(searched, &info.pv);
+            Event::Info(info) if session.stale == 0 => {
+                if let Some(search) = session.thinking {
+                    session.line = Some(Line::parse(search.position, &info.pv));
                 }
                 session.info = Some(info);
             }
             Event::Info(_) => {}
             Event::Done { best } => {
-                session.thinking = None;
+                let search = session.thinking.take();
                 if session.stale > 0 {
                     session.stale -= 1;
                     return;
                 }
+                if let Some(Search {
+                    position,
+                    purpose: Purpose::Analysis,
+                }) = search
+                {
+                    // Nothing is played; the line is for the preview.
+                    if session.line.as_ref().is_none_or(Line::is_empty) {
+                        // E.g. a forced move, which needs no search.
+                        let best = best.unwrap_or_default();
+                        session.line = Some(Line::parse(position, &best));
+                    }
+                    if let Some(preview) = &mut self.preview
+                        && preview.is_waiting()
+                        && !session.line.clone().is_some_and(|line| preview.fill(line))
+                    {
+                        self.preview = None;
+                    }
+                    // In case the engine was given this side meanwhile.
+                    self.think_if_engine_to_move();
+                    return;
+                }
                 let mv = best.and_then(|best| self.game.position().parse_move(&best).ok());
                 match mv {
-                    Some(mv) => {
-                        // Show the line as it continues after this move.
-                        if let Some(info) = &mut session.info {
-                            let (first, rest) = info.pv.split_once(' ').unwrap_or((&info.pv, ""));
-                            if first == mv.to_string() {
-                                info.pv = rest.to_owned();
-                            }
-                        }
-                        self.play(mv);
-                    }
+                    Some(mv) => self.play(mv),
                     None => self.message = Some(danger("The engine returned no legal move")),
                 }
             }
@@ -450,6 +564,7 @@ impl App {
             Event::Exited => {
                 let name = session.name.clone();
                 self.session = None;
+                self.preview = None;
                 self.players = Players::Nobody;
                 self.message = Some(danger(format!("{name} exited; two players now")));
             }
@@ -462,14 +577,41 @@ impl App {
         }
     }
 
-    /// Starts a search for the side to move.
+    /// Starts a search for the side to move, to play its result.
     fn think(&mut self) {
         let Some(session) = &mut self.session else {
             return;
         };
-        if !session.ready || session.thinking.is_some() || self.game.is_over() {
+        if !session.ready || self.game.is_over() {
             return;
         }
+        match session.thinking.map(|search| search.purpose) {
+            Some(Purpose::Move) => return,
+            // The engine's own move comes first; the analysis is abandoned.
+            Some(Purpose::Analysis) => {
+                session.thinking = None;
+                session.stale += 1;
+                let _ = session.engine.send("stop");
+            }
+            None => {}
+        }
+        if self.search(Purpose::Move) {
+            self.input.clear();
+        }
+        self.refresh();
+    }
+
+    /// Sends the game and starts a search of its position; returns whether
+    /// the engine took the commands. An analysis ignores the opening book,
+    /// so that it reports a line.
+    fn search(&mut self, purpose: Purpose) -> bool {
+        let Some(session) = &mut self.session else {
+            return false;
+        };
+        let (seconds, go) = match purpose {
+            Purpose::Move => (self.move_time, "go think"),
+            Purpose::Analysis => (ANALYSIS_SECONDS, "go analyze"),
+        };
         let moves: Vec<String> = self.game.moves().iter().map(|mv| mv.to_hub()).collect();
         let commands = [
             format!(
@@ -477,18 +619,19 @@ impl App {
                 self.game.start().hub(),
                 quote(&moves.join(" "))
             ),
-            format!("level move-time={}", self.move_time),
-            "go think".to_owned(),
+            format!("level move-time={seconds}"),
+            go.to_owned(),
         ];
-        if commands
+        let sent = commands
             .iter()
-            .all(|command| session.engine.send(command).is_ok())
-        {
-            session.thinking = Some(*self.game.position());
+            .all(|command| session.engine.send(command).is_ok());
+        if sent {
+            let position = *self.game.position();
+            session.thinking = Some(Search { position, purpose });
             session.info = None;
-            self.input.clear();
+            session.line = Some(Line::empty(position));
         }
-        self.refresh();
+        sent
     }
 
     /// Abandons the running search; its result will be ignored.
@@ -504,40 +647,82 @@ impl App {
     /// Pushes the current state to the board view and the status line.
     fn refresh(&mut self) {
         let moves = self.game.legal_moves();
-        self.board.set_scene(Scene {
+        let scene = Scene {
             position: *self.game.position(),
             flipped: self.flipped,
             selected: self.input.from(),
             targets: self.input.targets(&moves),
             via: self.input.via(),
             last_move: self.game.moves().last().copied(),
-        });
+            trail: Vec::new(),
+            captured: Bitboard::EMPTY,
+            preview: self.preview.is_some(),
+        };
+        let scene = match self.preview.as_ref().map(|p| (p, p.played().split_last())) {
+            Some((preview, Some((&last, trail)))) => Scene {
+                position: preview.position(),
+                last_move: Some(last),
+                trail: trail.to_vec(),
+                captured: preview.captured(),
+                ..scene
+            },
+            _ => scene,
+        };
+        self.board.set_scene(scene);
         self.status.set_status(self.status());
+    }
+
+    /// The status bar's account of the preview: the moves shown as played,
+    /// and those still ahead.
+    fn preview_items(preview: &Preview) -> Vec<Item> {
+        if preview.is_waiting() {
+            return vec![
+                Item::new("Preview: analysing…", Tone::Attention)
+                    .with_symbol(FORWARD_SYMBOL)
+                    .with_tooltip(
+                        "The engine looks for the expected line to play through on the board; \
+                         Esc returns to the game",
+                    ),
+            ];
+        }
+        let played = preview.played();
+        let skipped = played.len().saturating_sub(SHOWN_PLIES);
+        let shown = Line::pdn(&played[skipped..]);
+        let ellipsis = if skipped > 0 { "… " } else { "" };
+        let mut items = vec![
+            Item::new(
+                format!("Preview +{}: {ellipsis}{shown}", preview.ply()),
+                Tone::Attention,
+            )
+            .with_symbol(FORWARD_SYMBOL)
+            .with_tooltip(format!(
+                "Preview, not the game: the position after {} of the {} plies the engine \
+                 expects ({}). Click or press ⌘→ to go on, ⌘← to step back, Esc to return to \
+                 the game",
+                preview.ply(),
+                preview.line().moves().len(),
+                Line::pdn(preview.line().moves())
+            ))
+            .with_action(sel!(fastForward:)),
+        ];
+        let ahead = preview.ahead();
+        if !ahead.is_empty() {
+            items.push(
+                Item::new(shorten(&Line::pdn(ahead), SHOWN_PLIES), Tone::Muted)
+                    .with_tooltip(format!("Still ahead: {}", Line::pdn(ahead))),
+            );
+        }
+        items
     }
 
     fn status(&self) -> Status {
         let mut status = Status::default();
         let side = self.game.position().side_to_move();
-        status.left.push(match self.game.outcome() {
-            Some(outcome) => {
-                let reason = match outcome.termination {
-                    Termination::NoMoves => "no moves left",
-                    Termination::Repetition => "threefold repetition",
-                    Termination::TwentyFiveMoves => "25-move rule",
-                    Termination::SixteenMoves => "16-move rule",
-                    Termination::FiveMoves => "5-move rule",
-                };
-                let result = match outcome.winner {
-                    Some(color) => format!("{} wins", name(color)),
-                    None => "Draw".to_owned(),
-                };
-                Item::new(
-                    format!("{result} {} · {reason}", outcome.result()),
-                    Tone::Success,
-                )
-            }
-            None => Item::new(format!("{} to move", name(side)), Tone::Muted),
-        });
+        if let Some(preview) = &self.preview {
+            status.left.extend(Self::preview_items(preview));
+        } else {
+            status.left.push(self.outcome_item());
+        }
         if let Some(message) = &self.message {
             status.left.push(message.clone());
         } else if self.input.is_ambiguous() {
@@ -545,6 +730,9 @@ impl App {
                 "Several captures end there: click a piece to take",
                 Tone::Attention,
             ));
+        }
+        if self.preview.is_none() {
+            status.left.extend(self.expected_line_item());
         }
 
         let Some(session) = &self.session else {
@@ -558,12 +746,6 @@ impl App {
             return status;
         };
         if let Some(info) = &session.info {
-            if !info.pv.is_empty() {
-                status.left.push(
-                    Item::new(shorten(&info.pv, SHOWN_PLIES), Tone::Muted)
-                        .with_tooltip(format!("Expected line: {}", info.pv)),
-                );
-            }
             if let Some(depth) = info.depth {
                 status.right.push(
                     Item::new(depth.to_string(), Tone::Muted)
@@ -573,7 +755,10 @@ impl App {
             }
             if let Some(score) = info.score {
                 // Scores are from the searching side; show them for White.
-                let searched = session.thinking.map_or(!side, |p| p.side_to_move());
+                let searched = session
+                    .line
+                    .as_ref()
+                    .map_or(!side, |line| line.start().side_to_move());
                 let score = if searched == Color::White {
                     score
                 } else {
@@ -606,9 +791,10 @@ impl App {
                 .with_symbol(TIME_SYMBOL)
                 .with_tooltip("Engine thinking time per move; change it in the Game menu"),
         );
-        let (dot, state) = match (session.ready, session.thinking) {
+        let (dot, state) = match (session.ready, session.thinking.map(|s| s.purpose)) {
             (false, _) => (Tone::Muted, "starting"),
-            (true, Some(_)) => (Tone::Attention, "thinking"),
+            (true, Some(Purpose::Move)) => (Tone::Attention, "thinking"),
+            (true, Some(Purpose::Analysis)) => (Tone::Attention, "analysing"),
             (true, None) => (Tone::Success, "ready"),
         };
         status.right.push(
@@ -617,6 +803,60 @@ impl App {
                 .with_tooltip(format!("Engine: {}", session.name)),
         );
         status
+    }
+
+    /// The engine's expected line, which fast forwards when clicked; just
+    /// the icon if the engine first has to find the line.
+    fn expected_line_item(&self) -> Option<Item> {
+        if let Some(line) = self.expected_line() {
+            let line = Line::pdn(line.moves());
+            Some(
+                Item::new(shorten(&line, SHOWN_PLIES), Tone::Muted)
+                    .with_symbol(FORWARD_SYMBOL)
+                    .with_tooltip(format!(
+                        "Expected line: {line}. Click or press ⌘→ to play it through on the \
+                         board"
+                    ))
+                    .with_action(sel!(fastForward:)),
+            )
+        } else if self.can_analyse() {
+            Some(
+                Item::new("", Tone::Muted)
+                    .with_symbol(FORWARD_SYMBOL)
+                    .with_tooltip(
+                        "Fast forward: click or press ⌘→ to let the engine find the expected \
+                         line and play it through on the board",
+                    )
+                    .with_action(sel!(fastForward:)),
+            )
+        } else {
+            None
+        }
+    }
+
+    /// The game's state: whose turn it is, or how it ended.
+    fn outcome_item(&self) -> Item {
+        let side = self.game.position().side_to_move();
+        match self.game.outcome() {
+            Some(outcome) => {
+                let reason = match outcome.termination {
+                    Termination::NoMoves => "no moves left",
+                    Termination::Repetition => "threefold repetition",
+                    Termination::TwentyFiveMoves => "25-move rule",
+                    Termination::SixteenMoves => "16-move rule",
+                    Termination::FiveMoves => "5-move rule",
+                };
+                let result = match outcome.winner {
+                    Some(color) => format!("{} wins", name(color)),
+                    None => "Draw".to_owned(),
+                };
+                Item::new(
+                    format!("{result} {} · {reason}", outcome.result()),
+                    Tone::Success,
+                )
+            }
+            None => Item::new(format!("{} to move", name(side)), Tone::Muted),
+        }
     }
 }
 
@@ -629,20 +869,6 @@ fn name(color: Color) -> &'static str {
         Color::White => "White",
         Color::Black => "Black",
     }
-}
-
-/// Rewrites a variation from Hub notation (`28x19x23`) to short PDN
-/// (`28x19`), stopping at the first move that does not parse.
-fn pdn_line(mut position: Position, hub: &str) -> String {
-    let mut line = Vec::new();
-    for text in hub.split_whitespace() {
-        let Ok(mv) = position.parse_move(text) else {
-            break;
-        };
-        line.push(mv.to_string());
-        position.play(mv);
-    }
-    line.join(" ")
 }
 
 /// The first `plies` moves of `line`, with an ellipsis if there are more.
@@ -665,16 +891,6 @@ fn copy(text: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn variations_use_short_notation() {
-        let position = Position::initial();
-        assert_eq!(
-            pdn_line(position, "32-28 19-23 28x19x23 14x23x19"),
-            "32-28 19-23 28x19 14x23"
-        );
-        assert_eq!(pdn_line(position, "32-28 99-98 19-23"), "32-28");
-    }
 
     #[test]
     fn long_lines_are_shortened() {

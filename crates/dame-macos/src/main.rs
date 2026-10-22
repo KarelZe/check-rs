@@ -7,6 +7,7 @@
 
 mod engine;
 mod input;
+mod line;
 #[cfg(target_os = "macos")]
 // Subclassing AppKit classes and calling Objective-C needs `unsafe`.
 #[allow(unsafe_code)]

@@ -9,9 +9,10 @@ use objc2_app_kit::{
     NSAboutPanelOptionCredits, NSAboutPanelOptionVersion, NSAppearance, NSAppearanceCustomization,
     NSAppearanceNameDarkAqua, NSApplication, NSApplicationDelegate, NSAutoresizingMaskOptions,
     NSBackingStoreType, NSControlStateValueOff, NSControlStateValueOn, NSEvent,
-    NSEventModifierFlags, NSFont, NSFontAttributeName, NSImage, NSLinkAttributeName, NSMenu,
-    NSMenuItem, NSMenuItemValidation, NSModalResponseOK, NSMutableParagraphStyle, NSOpenPanel,
-    NSParagraphStyleAttributeName, NSTextAlignment, NSView, NSWindow, NSWindowStyleMask,
+    NSEventModifierFlags, NSFont, NSFontAttributeName, NSImage, NSLeftArrowFunctionKey,
+    NSLinkAttributeName, NSMenu, NSMenuItem, NSMenuItemValidation, NSModalResponseOK,
+    NSMutableParagraphStyle, NSOpenPanel, NSParagraphStyleAttributeName, NSRightArrowFunctionKey,
+    NSTextAlignment, NSView, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
     NSAttributedString, NSBundle, NSData, NSDictionary, NSNotification, NSObjectProtocol, NSPoint,
@@ -135,6 +136,21 @@ define_class!(
             with_app(App::flip);
         }
 
+        #[unsafe(method(fastForward:))]
+        fn fast_forward(&self, _sender: Option<&AnyObject>) {
+            with_app(App::fast_forward);
+        }
+
+        #[unsafe(method(stepBack:))]
+        fn step_back(&self, _sender: Option<&AnyObject>) {
+            with_app(App::step_back);
+        }
+
+        #[unsafe(method(backToGame:))]
+        fn back_to_game(&self, _sender: Option<&AnyObject>) {
+            with_app(App::back_to_game);
+        }
+
         #[unsafe(method(setPlayers:))]
         fn set_players(&self, sender: &NSMenuItem) {
             if let Some(&players) = usize::try_from(sender.tag())
@@ -206,6 +222,10 @@ fn validate(app: &App, item: &NSMenuItem) -> bool {
     } else if action == sel!(setBookPlies:) {
         check(usize::try_from(tag) == Ok(app.book_plies()));
         true
+    } else if action == sel!(fastForward:) {
+        app.can_fast_forward()
+    } else if action == sel!(stepBack:) || action == sel!(backToGame:) {
+        app.is_previewing()
     } else {
         true
     }
@@ -480,11 +500,22 @@ fn main_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
     }
     submenu(mtm, &bar, "Game", &game);
 
+    // Arrow and Escape keys as key equivalents, as AppKit spells them.
+    let right = char::from_u32(NSRightArrowFunctionKey).map_or_else(String::new, String::from);
+    let left = char::from_u32(NSLeftArrowFunctionKey).map_or_else(String::new, String::from);
+    let back_to_game = item(mtm, "Back to Game", Some(sel!(backToGame:)), "\u{1b}");
+    back_to_game.setKeyEquivalentModifierMask(NSEventModifierFlags::empty());
     submenu(
         mtm,
         &bar,
         "View",
-        &[item(mtm, "Flip Board", Some(sel!(flipBoard:)), "f")],
+        &[
+            item(mtm, "Flip Board", Some(sel!(flipBoard:)), "f"),
+            separator(),
+            item(mtm, "Fast Forward", Some(sel!(fastForward:)), &right),
+            item(mtm, "Step Back", Some(sel!(stepBack:)), &left),
+            back_to_game,
+        ],
     );
 
     let window = submenu(

@@ -26,6 +26,12 @@ pub(crate) struct Scene {
     /// Pieces clicked to choose between capture routes.
     pub(crate) via: Bitboard,
     pub(crate) last_move: Option<Move>,
+    /// Earlier moves of a fast-forward preview, oldest first.
+    pub(crate) trail: Vec<Move>,
+    /// Pieces the last move took, marked where they stood.
+    pub(crate) captured: Bitboard,
+    /// The board shows a preview, not the game.
+    pub(crate) preview: bool,
 }
 
 impl Default for Scene {
@@ -37,6 +43,9 @@ impl Default for Scene {
             targets: Bitboard::EMPTY,
             via: Bitboard::EMPTY,
             last_move: None,
+            trail: Vec::new(),
+            captured: Bitboard::EMPTY,
+            preview: false,
         }
     }
 }
@@ -172,11 +181,15 @@ impl BoardView {
         let dark = rgb(0.55, 0.37, 0.24, 1.0);
         // Highlights are GitHub dark-theme colors laid over the dark square.
         let last = palette::translucent(&palette::attention(), 0.45);
+        let earlier = palette::translucent(&palette::attention(), 0.2);
         let selected = palette::translucent(&palette::accent(), 0.6);
 
-        let last_squares = scene.last_move.map_or(Bitboard::EMPTY, |mv| {
-            mv.from().bitboard() | mv.to().bitboard()
-        });
+        let squares = |mv: Move| mv.from().bitboard() | mv.to().bitboard();
+        let last_squares = scene.last_move.map_or(Bitboard::EMPTY, squares);
+        let trail_squares = scene
+            .trail
+            .iter()
+            .fold(Bitboard::EMPTY, |acc, &mv| acc | squares(mv));
         for row in 0..10 {
             for col in 0..10 {
                 let rect = layout.cell_rect(row, col);
@@ -191,6 +204,8 @@ impl BoardView {
                     Some(&selected)
                 } else if last_squares.contains(square) {
                     Some(&last)
+                } else if trail_squares.contains(square) {
+                    Some(&earlier)
                 } else {
                     None
                 };
@@ -201,14 +216,19 @@ impl BoardView {
                 }
             }
         }
+        let board = NSRect::new(
+            layout.origin,
+            NSSize::new(layout.cell * 10.0, layout.cell * 10.0),
+        );
         rgb(0.25, 0.16, 0.10, 1.0).setStroke();
-        NSBezierPath::strokeRect(inset(
-            NSRect::new(
-                layout.origin,
-                NSSize::new(layout.cell * 10.0, layout.cell * 10.0),
-            ),
-            -0.5,
-        ));
+        NSBezierPath::strokeRect(inset(board, -0.5));
+        if scene.preview {
+            // A frame in the attention color: this is not the game.
+            palette::attention().setStroke();
+            let frame = NSBezierPath::bezierPathWithRect(inset(board, -3.0));
+            frame.setLineWidth(3.0);
+            frame.stroke();
+        }
 
         draw_numbers(&scene, layout);
         for square in Square::all() {
@@ -223,6 +243,16 @@ impl BoardView {
             fill_oval(
                 inset(layout.cell_rect(row, col), layout.cell * 0.36),
                 &target,
+            );
+        }
+        // Taken pieces are gone; a ring marks where they stood.
+        let taken = palette::translucent(&palette::danger(), 0.85);
+        for square in scene.captured {
+            let (row, col) = cell_of(square, scene.flipped);
+            stroke_oval(
+                inset(layout.cell_rect(row, col), layout.cell * 0.18),
+                &taken,
+                2.5,
             );
         }
         let via = palette::danger();

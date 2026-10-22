@@ -33,6 +33,8 @@ pub(crate) const SCORE_SYMBOL: &str = "speedometer";
 pub(crate) const TIME_SYMBOL: &str = "bolt";
 /// The opening book.
 pub(crate) const BOOK_SYMBOL: &str = "book";
+/// Fast forward along the expected line.
+pub(crate) const FORWARD_SYMBOL: &str = "forward.fill";
 
 /// What an item's text or dot means, and so its color.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -234,13 +236,15 @@ fn text_width(text: &str, attributes: &Attributes) -> f64 {
     unsafe { NSString::from_str(text).sizeWithAttributes(Some(attributes)) }.width
 }
 
-/// The width of an item, padding included.
+/// The width of an item, padding included. An item without text is just
+/// its dot or icon.
 fn item_width(item: &Item, attributes: &Attributes) -> f64 {
+    let gap = if item.text.is_empty() { 0.0 } else { LEAD_GAP };
     let lead = match item.lead {
         None => 0.0,
-        Some(Lead::Dot(_)) => DOT + LEAD_GAP,
+        Some(Lead::Dot(_)) => DOT + gap,
         Some(Lead::Symbol(name)) => {
-            symbol(name, item.tone).map_or(0.0, |image| image.size().width + LEAD_GAP)
+            symbol(name, item.tone).map_or(0.0, |image| image.size().width + gap)
         }
     };
     PAD + lead + text_width(&item.text, attributes) + PAD
@@ -363,7 +367,8 @@ impl StatusBar {
             } else {
                 item.text.clone()
             };
-            if text.is_empty() {
+            // Nothing is left of the text, but an icon-only item may fit.
+            if text.is_empty() && !item.text.is_empty() {
                 break;
             }
             let shown = Item {
@@ -419,7 +424,13 @@ mod tests {
 
     #[test]
     fn symbols_exist() {
-        for name in [DEPTH_SYMBOL, SCORE_SYMBOL, TIME_SYMBOL, BOOK_SYMBOL] {
+        for name in [
+            DEPTH_SYMBOL,
+            SCORE_SYMBOL,
+            TIME_SYMBOL,
+            BOOK_SYMBOL,
+            FORWARD_SYMBOL,
+        ] {
             assert!(symbol(name, Tone::Muted).is_some(), "{name}");
         }
     }
